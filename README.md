@@ -47,8 +47,25 @@ Interface with display:
 |--------------|------------|
 | 18/23/25/25/27/33 | CLK/DIN/DC/CS/BUSY/RST |  
 
+## ESP32 Pinout Muenzer 63
+
+The pinout you can find [here.](./assets/ESP32-Pinout-Muenzer63.txt)
+
 ## About the software
 
 As the ESP32 has two core processors, the code here has been optimized so that part of the program runs via the second processor. It is mainly the pulse query of the dial that is queried cyclically. The part of the ATM with the pulses from the coin selector runs on the second processor and is processed in a similar way to a step chain. 
 
 To protect the private wallet data, the LNbits wallet string is stored in the file "private_data.h". It is entered in .gitignore and is ignored when uploading to Github. This prevents you from accidentally uploading the wallet data. There is a file "private_data_example.h" in the "include" directory. It is an example file that must be copied in the same directory and renamed to "private_data.h". Only in this file the string of the LNbits wallet must be adapted. As the file is entered in .gitignore, the content is ignored by Git. Changes do not appear in Git and therefore cannot be accidentally uploaded to GitHub. 
+
+## Special thanks to
+
+[Daktari⚡️](https://x.com/MaunaLion) who rescued the Muenzer 63 from the scrap heap in the 90s and kept it in good condition for over 30 years.
+
+[Flex](https://github.com/f321x) for the great [offline-LightningATM](https://github.com/f321x/offline-LightningATM-esp32). In addition to the beautiful exterior of the Muenzer 63, the heart of the project.
+
+[Ben Arc](https://x.com/arcbtc) and the LNbits community for the great [LNbits](https://lnbits.com/), without which there would never have been such beautiful lightning⚡️functions.
+
+## If you like it or would like to know more
+
+Lightning⚡Address: <axelhamburch@ereignishorizont.xyz><br>
+Web: <https://ereignishorizont.xyz/>
