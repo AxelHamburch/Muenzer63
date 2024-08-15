@@ -1,11 +1,11 @@
 # Muenzer 63
 Muenzer 63 - An old remote dial coin box with money changer
 
-<img src="./assets/Bild2.jpg" width="500">
+<img src="./assets/Bild3.jpg" width="500">
 
 und zwo
 
-![](assets/Bild2.jpg)
+![](assets/Bild3.jpg)
 
 The Münzer 63 (manufacturer's designation Siemens AG: MünzFW63) is a coin-operated telephone which was introduced in 1963 and used until the early 1990s. Back then, it was good old German engineering, with lots of electromechanics and mechanical coin testing. It was rescued from the scrap heap by a good friend in the 90s and lovingly stored for 30 years before I was able to give it a second life. 
 
