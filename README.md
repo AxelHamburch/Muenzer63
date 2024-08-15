@@ -1,6 +1,12 @@
 # Muenzer 63
 Muenzer 63 - An old remote dial coin box with money changer
 
+<img src="./assets/Bild2.jpg" width="500">
+
+und zwo
+
+![](assets/Bild2.jpg)
+
 The Münzer 63 (manufacturer's designation Siemens AG: MünzFW63) is a coin-operated telephone which was introduced in 1963 and used until the early 1990s. Back then, it was good old German engineering, with lots of electromechanics and mechanical coin testing. It was rescued from the scrap heap by a good friend in the 90s and lovingly stored for 30 years before I was able to give it a second life. 
 
 It is now an offline Lightning ATM with a few extra gadgets, as the dial and handset lent themselves perfectly to user interaction. The coin slot, coin cassette and coin ejector could also be reused. However, the coin check is now carried out electrically. The ATM was also given a display and an LED button. Everything was positioned as inconspicuously as possible so that as little as possible had to be falsified or even damaged from the outside. Externally, it is virtually still original, or can be completely restored. The interior was largely gutted, but as much as possible was reused.
