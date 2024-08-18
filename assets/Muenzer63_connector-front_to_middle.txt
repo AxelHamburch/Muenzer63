@@ -1,0 +1,15 @@
+### Plug connector: Front to middle ###
+
+# Socket to middle (view: rear side solder pins) #
+
+GND		x	4	x	2
+1		x	3	x	4
+coin inhibit	x	2	x	COIN
+12V		x	1	x	GND
+
+# Connector to front (rear side solder pins) #
+
+2 	GN	x	4	x	WH/BU	GND
+3 	BR	x	3	x	1 	dial
+COIN	PK	x	2	x	BL	coin inhibit	
+GND 	WH	x	1	x	RT	12V

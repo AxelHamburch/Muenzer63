@@ -63,7 +63,10 @@ Interface with display:
 
 ## ESP32 Pinout Muenzer 63
 
-The pinout you can find [here.](./assets/ESP32-Pinout-Muenzer63.txt)
+The ESP32 pinout you can find [here.](./assets/ESP32-Pinout-Muenzer63.txt) <br>
+The connector front to back [here.](./assets/Muenzer63_connector-front_to_back.txt) <br>
+And the connector front to middle [here.](./assets/Muenzer63_connector-front_to_middle.txt) <br>
+
 
 ## About the software
 
