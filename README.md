@@ -19,6 +19,13 @@ The heart of the new Muenzer 63 is an offline ATM based on the GitHub project ["
 
 The ATM has been extended a little for the Muenzer 63. It has been given an additional module, a mini MP3 player with a 3 watt amplifier, which communicates with the ESP32 via a serial UART interface and can play MP3 files from an SD card. The ESP32, the module, three Mosfet solid state relays and a 12V/5V voltage converter are soldered onto a strip grid board and the entire board is equipped with connection options. 
 
+## The Hardware
+
+Muenzer 63: [info](http://www.oeffentlichetelefone.de/muenzfernsprecher_muenzfw_63.html) | [old manuals](https://www.wasser.de/telefon-alt/datenbank/inhalt.pl?tin=&kategorie=1000091) <br>
+ESP32 NodeMCU: [google](https://www.google.com/search?q=esp32+nodemcu) <br>
+DFPlayer Mini - MP3-Player: [data sheet](https://wiki.dfrobot.com/DFPlayer_Mini_SKU_DFR0299) | [Github](https://github.com/DFRobot/DFRobotDFPlayerMini) | [info](https://www.elektronik-kompendium.de/sites/praxis/bauteil_dfplayer-mini.htm) | [video](https://prilchen.de/steuerbarer-mp3-files-mit-dfplayer/) <br>
+PWM Mosfet D4184 (relay): [great documentation](https://github.com/technerdchris/boards/tree/master/D4184) <br>
+
 ## Interfaces and functions of the ESP32
 
 Inputs and outputs:
@@ -59,7 +66,9 @@ As the ESP32 has two core processors, the code here has been optimized so that p
 
 To protect the private wallet data, the LNbits wallet string is stored in the file "private_data.h". It is entered in .gitignore and is ignored when uploading to Github. This prevents you from accidentally uploading the wallet data. There is a file "private_data_example.h" in the "include" directory. It is an example file that must be copied in the same directory and renamed to "private_data.h". Only in this file the string of the LNbits wallet must be adapted. As the file is entered in .gitignore, the content is ignored by Git. Changes do not appear in Git and therefore cannot be accidentally uploaded to GitHub. 
 
-## Picutres of the Muenzer 63
+Text to speech converter: [ttsmp3.com](https://ttsmp3.com/) <br>
+
+## Pictures of the Muenzer 63
 
 ![](./assets/Bild1.jpg)  |  ![](./assets/Bild2.jpg)   |  ![](./assets/Bild3.jpg)
 :------------------------:|:------------------------:|:------------------------:
