@@ -22,9 +22,11 @@ The ATM has been extended a little for the Muenzer 63. It has been given an addi
 ## The Hardware
 
 Muenzer 63: [info](http://www.oeffentlichetelefone.de/muenzfernsprecher_muenzfw_63.html) | [old manuals](https://www.wasser.de/telefon-alt/datenbank/inhalt.pl?tin=&kategorie=1000091) <br>
-ESP32 NodeMCU: [google](https://www.google.com/search?q=esp32+nodemcu) <br>
-DFPlayer Mini - MP3-Player: [data sheet](https://wiki.dfrobot.com/DFPlayer_Mini_SKU_DFR0299) | [Github](https://github.com/DFRobot/DFRobotDFPlayerMini) | [info](https://www.elektronik-kompendium.de/sites/praxis/bauteil_dfplayer-mini.htm) | [video](https://prilchen.de/steuerbarer-mp3-files-mit-dfplayer/) <br>
+ESP32 NodeMCU: [Google](https://www.google.com/search?q=esp32+nodemcu) <br>
+Display: [Waveshare](https://www.waveshare.com/product/raspberry-pi/displays/e-paper/2.13inch-e-paper-hat-d.htm?___SID=U) <br>
+DFPlayer Mini - MP3-Player: [data sheet](https://wiki.dfrobot.com/DFPlayer_Mini_SKU_DFR0299) | [Github](https://github.com/DFRobot/DFRobotDFPlayerMini) | [info](https://www.elektronik-kompendium.de/sites/praxis/bauteil_dfplayer-mini.htm) | [code and video](https://prilchen.de/steuerbarer-mp3-files-mit-dfplayer/) <br>
 PWM Mosfet D4184 (relay): [great documentation](https://github.com/technerdchris/boards/tree/master/D4184) <br>
+Dial: [wiki](https://de.wikipedia.org/wiki/Nummernschalter) <br>
 
 ## Interfaces and functions of the ESP32
 
@@ -67,6 +69,7 @@ As the ESP32 has two core processors, the code here has been optimized so that p
 To protect the private wallet data, the LNbits wallet string is stored in the file "private_data.h". It is entered in .gitignore and is ignored when uploading to Github. This prevents you from accidentally uploading the wallet data. There is a file "private_data_example.h" in the "include" directory. It is an example file that must be copied in the same directory and renamed to "private_data.h". Only in this file the string of the LNbits wallet must be adapted. As the file is entered in .gitignore, the content is ignored by Git. Changes do not appear in Git and therefore cannot be accidentally uploaded to GitHub. 
 
 Text to speech converter: [ttsmp3.com](https://ttsmp3.com/) <br>
+UART Com: [microcontrollerslab.com](https://microcontrollerslab.com/esp32-uart-communication-pins-example/) <br>
 
 ## Pictures of the Muenzer 63
 
