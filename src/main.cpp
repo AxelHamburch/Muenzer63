@@ -5,17 +5,13 @@
 HardwareSerial SerialPort2(2); // use UART2 (UART0 is used for terminal, UART1 is difficult)
 DFRobotDFPlayerMini myDFPlayer;
 
-// Touch PIN 4
-// const int touchPin = 4;
-// const int threshold = 20;
-// int touchValue;
-
 // ATM aktivieren
 bool activeATM = false;
 bool activeATMflanker = false;
 
 // Zustände der Pulserkennung Wahlscheibe
-enum PulseDetectionState {
+enum PulseDetectionState
+{
   WAIT_FOR_PULSE,
   DEBOUNCE,
   PULSE_RECEIVED
@@ -29,7 +25,7 @@ unsigned int dial_final_pulse_count = 0;
 bool dial_prev_value = !digitalRead(DIAL_PIN);
 unsigned long dial_debounce_start_time = 0;
 
-const unsigned int COINS[] = { 0, 0, 5, 10, 20, 50, 100, 200, 1, 2 };
+const unsigned int COINS[] = {0, 0, 5, 10, 20, 50, 100, 200, 1, 2};
 bool button_pressed = false;
 unsigned int inserted_cents = 0;
 unsigned long long time_last_press = millis();
@@ -40,30 +36,14 @@ String currencyATM;
 // Task für Core 0
 TaskHandle_t Task1;
 
-/**
-// blink arrow light
-bool flash = false;
-
-bool start_payout = false;
-unsigned long long time2;
- */
-
- /**
- // *** for Waveshare ESP32 Driver board *** //
- #if defined(ESP32) && defined(USE_HSPI_FOR_EPD)
- SPIClass hspi(HSPI);
- #endif
- // *** end Waveshare ESP32 Driver board *** //
- */
-
- // Initialisierung Blink für zweiten Core
-unsigned long previousMillis = 0;  // Speichert die letzte Zeit in Millisekunden
-const long interval = 1000;        // Intervallzeit in Millisekunden (1 Sekunde)
-int Blink = 0;                     // Variable, die zwischen 0 und 1 wechselt
+// Initialisierung Blink für zweiten Core
+unsigned long previousMillis = 0; // Speichert die letzte Zeit in Millisekunden
+const long interval = 1000;       // Intervallzeit in Millisekunden (1 Sekunde)
+int Blink = 0;                    // Variable, die zwischen 0 und 1 wechselt
 
 // Initialisierung PWM für zweiten Core
-unsigned long previousMillis2 = 0;  // Speichert die letzte Zeit in Millisekunden
-const long interval2 = 20;        // Intervallzeit in Millisekunden (1 Sekunde)
+unsigned long previousMillis2 = 0; // Speichert die letzte Zeit in Millisekunden
+const long interval2 = 20;         // Intervallzeit in Millisekunden (1 Sekunde)
 int dutyCycle = 0;
 bool up_and_down = true;
 
@@ -74,7 +54,8 @@ unsigned int d_tempDialPulses = 0;
 bool d_newInput = false;
 
 // Task des zweiten Core - Läuft in Endlosschleife
-void Task1code(void* pvParameters) {
+void Task1code(void *pvParameters)
+{
   // delay(3000); // delay to boot player first
   Serial.println();
   Serial.print("Task1 running on core ");
@@ -83,59 +64,58 @@ void Task1code(void* pvParameters) {
   // Initialisiere DFPlayer
   Serial.println(F("Check serials"));
   SerialPort2.begin(9600, SERIAL_8N1, 16, 17); // RX, TX (UART2)
-  /**
-  Serial.println("Serial Txd0 is on pin: " + String(TX));
-  Serial.println("Serial Rxd0 is on pin: " + String(RX));
-  Serial.println("Serial Txd1 is on pin: " + String(TX1));
-  Serial.println("Serial Rxd1 is on pin: " + String(RX1));
-  Serial.println("Serial Txd2 is on pin: " + String(TX2));
-  Serial.println("Serial Rxd2 is on pin: " + String(RX2));
-  */
   Serial.println(F("DFRobot DFPlayer Mini"));
   Serial.println(F("Initialisiere DFPlayer ... (Dauert bis zu 5 Sek)"));
-  if (!myDFPlayer.begin(SerialPort2)) {  // Use serial to communicate with mp3.
+  if (!myDFPlayer.begin(SerialPort2))
+  { // Use serial to communicate with mp3.
     Serial.println(F("Kann nicht starten: "));
     Serial.println(F("1. Kabelverbindung prüfen"));
     Serial.println(F("2. SD Karte korrekt vorbereitet und eingesteckt"));
     Serial.println(F("-> Programm stoppt hier!!!"));
-    while (true) {
+    while (true)
+    {
       delay(0); // Zeile wird nur für ESP8266 benötigt
     }
   }
   Serial.println(F("DFPlayer Mini Startklar"));
-  myDFPlayer.volume(23);  // Einstellung Lautstärke zwischen 0 bis max 30
+  myDFPlayer.volume(23); // Einstellung Lautstärke zwischen 0 bis max 30
   Serial.println();
 
   // Setup initialization
-  pinMode(K2_BACKLIGHT_PIN, OUTPUT);                        // initialize pin as an output
-  pinMode(SWITCH1_PIN, INPUT_PULLUP);                       // input switch 1
-  pinMode(SWITCH2_PIN, INPUT_PULLUP);                       // input switch 2 (Reserve, not used yet)
-  pinMode(DIAL_PIN, INPUT_PULLUP);                          // pulses input
+  pinMode(K2_BACKLIGHT_PIN, OUTPUT);  // initialize pin as an output
+  pinMode(SWITCH1_PIN, INPUT_PULLUP); // input switch 1
+  pinMode(SWITCH2_PIN, INPUT_PULLUP); // input switch 2 (Reserve, not used yet)
+  pinMode(DIAL_PIN, INPUT_PULLUP);    // pulses input
   bool switch1_rising_edge = false;
   bool switch1_faling_edge = false;
   bool switch1_previous_status = true;
 
-  for (;;) {
+  for (;;)
+  {
 
     // Flankenauswertung Telefonhöhrer (aufgelegt = 0 / abgehoben = 1)
     bool switch1_read_value = !digitalRead(SWITCH1_PIN);
-    if (switch1_read_value == true && switch1_previous_status == false) {
+    if (switch1_read_value == true && switch1_previous_status == false)
+    {
       switch1_rising_edge = true;
     }
-    if (switch1_read_value == false && switch1_previous_status == true) {
+    if (switch1_read_value == false && switch1_previous_status == true)
+    {
       switch1_faling_edge = true;
     }
     switch1_previous_status = switch1_read_value;
 
     // Nach abheben des Hörers Freizeichen abspielen
-    if (switch1_rising_edge == true) {
+    if (switch1_rising_edge == true)
+    {
       myDFPlayer.play(11);
       Serial.println("Play dial tone");
       switch1_rising_edge = false;
     }
 
     // Abspielen stoppen, wenn Höhrer aufgelegt wurde
-    if (switch1_faling_edge == true) {
+    if (switch1_faling_edge == true)
+    {
       myDFPlayer.stop();
       Serial.println("Stop playing");
       switch1_faling_edge = false;
@@ -143,33 +123,40 @@ void Task1code(void* pvParameters) {
 
     // Blink Funktion
     unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= interval) {
+    if (currentMillis - previousMillis >= interval)
+    {
       previousMillis = currentMillis;
       Blink = !Blink;
     }
 
     // Wenn Höhrer abgehoben -> Auswertung Pulswahl
-    if (switch1_read_value == true) {
+    if (switch1_read_value == true)
+    {
       // Pulserkennung
       bool dial_read_value = !digitalRead(DIAL_PIN);
       unsigned long dial_current_time = millis();
-      switch (dial_currentState) {
+      switch (dial_currentState)
+      {
       case WAIT_FOR_PULSE:
-        if (dial_read_value != dial_prev_value && !dial_read_value) {
+        if (dial_read_value != dial_prev_value && !dial_read_value)
+        {
           dial_debounce_start_time = dial_current_time;
           dial_currentState = DEBOUNCE;
         }
         break;
       case DEBOUNCE:
-        if (dial_current_time - dial_debounce_start_time >= 25) {
+        if (dial_current_time - dial_debounce_start_time >= 25)
+        {
           dial_read_value = !digitalRead(DIAL_PIN);
-          if (!dial_read_value) {
+          if (!dial_read_value)
+          {
             dial_pulses++;
             dial_last_pulse = dial_current_time;
             Serial.println("dial pulse+");
             dial_currentState = WAIT_FOR_PULSE; // Zurück zu WAIT_FOR_PULSE, um weitere Impulse zu erfassen
           }
-          else {
+          else
+          {
             dial_currentState = WAIT_FOR_PULSE;
           }
         }
@@ -178,22 +165,26 @@ void Task1code(void* pvParameters) {
       dial_prev_value = dial_read_value;
 
       // Auswertung der Pulse, spiel File des DFPlayer (nur wenn Höhrer abgehoben)
-      if (switch1_read_value == true && dial_pulses > 0 && (dial_current_time - dial_last_pulse > DIAL_TIMEOUT)) {
+      if (switch1_read_value == true && dial_pulses > 0 && (dial_current_time - dial_last_pulse > DIAL_TIMEOUT))
+      {
         dial_final_pulse_count = dial_pulses;
         Serial.print("Total dial pulses: ");
         Serial.println(dial_final_pulse_count);
         dial_pulses = 0; // Reset für die nächste Impulsreihe
         // Trigger DFPlayer actions based on final_pulse_count
-        if (dial_final_pulse_count >= 1 && dial_final_pulse_count <= 10) {
+        if (dial_final_pulse_count >= 1 && dial_final_pulse_count <= 10)
+        {
           myDFPlayer.play(dial_final_pulse_count);
 
           /// ### Abfrage auf 21 ###
           unsigned long d_currentMillis = millis();
-          if (d_currentMillis - d_previousMillis <= d_interval) {
+          if (d_currentMillis - d_previousMillis <= d_interval)
+          {
             // If within 10 seconds, append the new value to the previous one
             d_tempDialPulses = d_tempDialPulses * 10 + dial_final_pulse_count;
           }
-          else {
+          else
+          {
             // If more than 10 seconds, reset the temporary storage
             d_tempDialPulses = dial_final_pulse_count;
           }
@@ -202,7 +193,8 @@ void Task1code(void* pvParameters) {
           // Print the current combined value
           Serial.print("Zummenzähler: ");
           Serial.println(d_tempDialPulses);
-          if (d_tempDialPulses == 21) {
+          if (d_tempDialPulses == 21)
+          {
             myDFPlayer.stop();
             myDFPlayer.play(21);
             Serial.println("Play 21");
@@ -212,7 +204,8 @@ void Task1code(void* pvParameters) {
             activeATM = true;
             activeATMflanker = true;
           }
-          if (d_tempDialPulses == 22) {
+          if (d_tempDialPulses == 22)
+          {
             myDFPlayer.stop();
             myDFPlayer.play(22);
             Serial.println("Play 22");
@@ -226,17 +219,20 @@ void Task1code(void* pvParameters) {
         dial_final_pulse_count = 0;
       }
     }
-    else {
+    else
+    {
       dial_final_pulse_count = 0;
       dial_pulses = 0;
     }
 
     // When the handset is lifted, the backlight switches on
     int pinState = digitalRead(SWITCH1_PIN);
-    if (pinState == LOW) {
+    if (pinState == LOW)
+    {
       analogWrite(K2_BACKLIGHT_PIN, 255);
     }
-    else {
+    else
+    {
       analogWrite(K2_BACKLIGHT_PIN, 0);
     }
 
@@ -245,10 +241,9 @@ void Task1code(void* pvParameters) {
   }
 }
 
-
-
 // Function to update the K1_ARROW_PIN based on the blink value
-void updateArrow() {
+void updateArrow()
+{
   digitalWrite(K1_ARROW_PIN, Blink ? HIGH : LOW);
   // to activate: updateArrow();
 }
@@ -259,31 +254,22 @@ void setup()
   Serial.begin(115200);
   delay(500);
 
-  //create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
+  // create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
   xTaskCreatePinnedToCore(
-    Task1code,   //* Task function.
-    "Task1",     //* name of task.
-    10000,       //* Stack size of task
-    NULL,        //* parameter of the task
-    1,           //* priority of the task
-    &Task1,      //* Task handle to keep track of created task
-    0         //* pin task to core 0
+      Task1code, //* Task function.
+      "Task1",   //* name of task.
+      10000,     //* Stack size of task
+      NULL,      //* parameter of the task
+      1,         //* priority of the task
+      &Task1,    //* Task handle to keep track of created task
+      0          //* pin task to core 0
   );
   delay(500);
 
-  /**
-    // *** for Waveshare ESP32 Driver board *** //
-  #if defined(ESP32) && defined(USE_HSPI_FOR_EPD)
-    hspi.begin(13, 12, 14, 15); // remap hspi for EPD (swap pins)
-    display.epd2.selectSPI(hspi, SPISettings(4000000, MSBFIRST, SPI_MODE0));
-  #endif
-    // *** end Waveshare ESP32 Driver board *** //
-  */
-
-  if (DEBUG_MODE)                                           // serial connection for debugging over USB
+  if (DEBUG_MODE) // serial connection for debugging over USB
   {
     sleep(3);
-    Serial.println("Setup with debug mode...");             // for monitoring with serial monitor to debug
+    Serial.println("Setup with debug mode..."); // for monitoring with serial monitor to debug
     Serial.println("Selected display type: " + display_type);
   }
   pinMode(K1_ARROW_PIN, OUTPUT);                            // Initialize pin as an output
@@ -291,10 +277,10 @@ void setup()
   pinMode(LED_BUTTON_PIN, OUTPUT);                          // LED of the LED Button
   pinMode(BUTTON_PIN, INPUT_PULLUP);                        // Button
   pinMode(MOSFET_PIN, OUTPUT);                              // mosfet relay to block the coin acceptor
-  digitalWrite(MOSFET_PIN, HIGH);                            // set it low to accept coins, high to block coins
+  digitalWrite(MOSFET_PIN, HIGH);                           // set it low to accept coins, high to block coins
   attachInterrupt(BUTTON_PIN, button_pressed_itr, FALLING); // interrupt, will set button_pressed to true when button is pressed
-  muenzfw_screen();                                            // will show first screen
-  digitalWrite(LED_BUTTON_PIN, LOW);                       // light up the led
+  muenzfw_screen();                                         // will show first screen
+  digitalWrite(LED_BUTTON_PIN, LOW);                        // light up the led
   baseURLATM = getValue(lnurlDeviceString, ',', 0);         // setup wallet data from string
   secretATM = getValue(lnurlDeviceString, ',', 1);
   currencyATM = getValue(lnurlDeviceString, ',', 2);
@@ -314,11 +300,13 @@ void loop()
     // Serial.println("start_payout = false");
   }
 
-  if (activeATM == true) {
+  if (activeATM == true)
+  {
     Serial.println("activeATM == true");
 
     // Initialisierung für den ersten Aufruf
-    if (activeATMflanker == true) {
+    if (activeATMflanker == true)
+    {
       home_screen();
       digitalWrite(MOSFET_PIN, LOW);
       digitalWrite(LED_BUTTON_PIN, HIGH);
@@ -332,20 +320,12 @@ void loop()
       digitalWrite(LED_BUTTON_PIN, LOW);
       inserted_cents += COINS[pulses];
       show_inserted_amount(inserted_cents);
-
-      /**
-          //start arrow light
-          Serial.println("start_payout = true");
-          start_payout = true;
-          time2 = millis();
-      */
-
     }
     else if (button_pressed && inserted_cents > 0)
     {
       digitalWrite(MOSFET_PIN, HIGH);
       button_pressed = false;
-      char* lnurl = makeLNURL(inserted_cents);
+      char *lnurl = makeLNURL(inserted_cents);
       qr_withdrawl_screen(lnurl);
       free(lnurl);
       wait_for_user_to_scan();
@@ -401,10 +381,10 @@ void wait_for_user_to_scan()
   if (DEBUG_MODE)
     Serial.println("Waiting for user to scan qr code and press button...");
   light_on = true;
-  time = millis();  // save start time
-  digitalWrite(LED_BUTTON_PIN, LOW);  // light up the led
+  time = millis();                   // save start time
+  digitalWrite(LED_BUTTON_PIN, LOW); // light up the led
   delay(10000);
-  digitalWrite(LED_BUTTON_PIN, HIGH);  // light up the led
+  digitalWrite(LED_BUTTON_PIN, HIGH); // light up the led
   button_pressed = false;
   Serial.println("wait for user to press button or 10 minutes to go back to home screen");
   while (!button_pressed && (millis() - time) < 600000)
@@ -468,7 +448,8 @@ unsigned int detect_coin()
       break;
     }
     else if ((pulses == 0 && ((current_time - entering_time) > 160000) // deaktivere ATM Funktion nach 3 Minuten
-      && inserted_cents == 0) || activeATM == false)
+              && inserted_cents == 0) ||
+             activeATM == false)
     {
       digitalWrite(MOSFET_PIN, HIGH);
       digitalWrite(LED_BUTTON_PIN, LOW);
@@ -595,7 +576,7 @@ void show_inserted_amount(int amount_in_cents)
     Serial.println("New amount on screen.");
 }
 
-void qr_withdrawl_screen(const char* qr_content)
+void qr_withdrawl_screen(const char *qr_content)
 {
   if (display_type == "GxEPD2_150_BN")
     qr_withdrawl_screen_waveshare_1_54(qr_content);
@@ -613,8 +594,7 @@ void qr_withdrawl_screen(const char* qr_content)
     Serial.println("QR generated and Withdrawl screen printed.");
 }
 
-
-//  Called to clean the e-ink screen for storage over longer periods 
+//  Called to clean the e-ink screen for storage over longer periods
 // by button presses on home screen
 void clean_screen()
 {
@@ -662,7 +642,7 @@ String get_amount_string(int amount_in_cents)
 ////////////THANK YOU STEPAN////////////////
 ////////////////////////////////////////////
 
-int xor_encrypt(uint8_t* output, size_t outlen, uint8_t* key, size_t keylen, uint8_t* nonce, size_t nonce_len, uint64_t pin, uint64_t amount_in_cents)
+int xor_encrypt(uint8_t *output, size_t outlen, uint8_t *key, size_t keylen, uint8_t *nonce, size_t nonce_len, uint64_t pin, uint64_t amount_in_cents)
 {
   // check we have space for all the data:
   // <variant_byte><len|nonce><len|payload:{pin}{amount}><hmac>
@@ -685,7 +665,7 @@ int xor_encrypt(uint8_t* output, size_t outlen, uint8_t* key, size_t keylen, uin
   int payload_len = lenVarInt(pin) + 1 + lenVarInt(amount_in_cents);
   output[cur] = (uint8_t)payload_len;
   cur++;
-  uint8_t* payload = output + cur;                                 // pointer to the start of the payload
+  uint8_t *payload = output + cur;                                 // pointer to the start of the payload
   cur += writeVarInt(pin, output + cur, outlen - cur);             // pin code
   cur += writeVarInt(amount_in_cents, output + cur, outlen - cur); // amount
   cur++;
@@ -694,7 +674,7 @@ int xor_encrypt(uint8_t* output, size_t outlen, uint8_t* key, size_t keylen, uin
   uint8_t hmacresult[32];
   SHA256 h;
   h.beginHMAC(key, keylen);
-  h.write((uint8_t*)"Round secret:", 13);
+  h.write((uint8_t *)"Round secret:", 13);
   h.write(nonce, nonce_len);
   h.endHMAC(hmacresult);
   for (int i = 0; i < payload_len; i++)
@@ -704,7 +684,7 @@ int xor_encrypt(uint8_t* output, size_t outlen, uint8_t* key, size_t keylen, uin
 
   // add hmac to authenticate
   h.beginHMAC(key, keylen);
-  h.write((uint8_t*)"Data:", 5);
+  h.write((uint8_t *)"Data:", 5);
   h.write(output, cur);
   h.endHMAC(hmacresult);
   memcpy(output + cur, hmacresult, 8);
@@ -714,7 +694,7 @@ int xor_encrypt(uint8_t* output, size_t outlen, uint8_t* key, size_t keylen, uin
   return cur;
 }
 
-char* makeLNURL(float total)
+char *makeLNURL(float total)
 {
   int randomPin = random(1000, 9999);
   byte nonce[8];
@@ -723,20 +703,20 @@ char* makeLNURL(float total)
     nonce[i] = random(256);
   }
   byte payload[51]; // 51 bytes is max one can get with xor-encryption
-  size_t payload_len = xor_encrypt(payload, sizeof(payload), (uint8_t*)secretATM.c_str(), secretATM.length(), nonce, sizeof(nonce), randomPin, float(total));
+  size_t payload_len = xor_encrypt(payload, sizeof(payload), (uint8_t *)secretATM.c_str(), secretATM.length(), nonce, sizeof(nonce), randomPin, float(total));
   String preparedURL = baseURLATM + "?atm=1&p=";
   preparedURL += toBase64(payload, payload_len, BASE64_URLSAFE | BASE64_NOPADDING);
   if (DEBUG_MODE)
     Serial.println(preparedURL);
   char Buf[200];
   preparedURL.toCharArray(Buf, 200);
-  char* url = Buf;
-  byte* data = (byte*)calloc(strlen(url) * 2, sizeof(byte));
+  char *url = Buf;
+  byte *data = (byte *)calloc(strlen(url) * 2, sizeof(byte));
   if (!data)
     return (NULL);
   size_t len = 0;
-  int res = convert_bits(data, &len, 5, (byte*)url, strlen(url), 8, 1);
-  char* charLnurl = (char*)calloc(strlen(url) * 2, sizeof(byte));
+  int res = convert_bits(data, &len, 5, (byte *)url, strlen(url), 8, 1);
+  char *charLnurl = (char *)calloc(strlen(url) * 2, sizeof(byte));
   if (!charLnurl)
   {
     free(data);
@@ -748,7 +728,7 @@ char* makeLNURL(float total)
   return (charLnurl);
 }
 
-void to_upper(char* arr)
+void to_upper(char *arr)
 {
   for (size_t i = 0; i < strlen(arr); i++)
   {
@@ -763,7 +743,7 @@ void to_upper(char* arr)
 String getValue(const String data, char separator, int index)
 {
   int found = 0;
-  int strIndex[] = { 0, -1 };
+  int strIndex[] = {0, -1};
   const int maxIndex = data.length() - 1;
 
   for (int i = 0; i <= maxIndex && found <= index; i++)
@@ -829,7 +809,7 @@ void show_inserted_amount_waveshare_1_54(String amount_in_euro)
   display.nextPage();
 }
 
-void qr_withdrawl_screen_waveshare_1_54(const char* qr_content)
+void qr_withdrawl_screen_waveshare_1_54(const char *qr_content)
 {
   QRCode qrcoded;
   uint8_t qrcodeData[qrcode_getBufferSize(QR_VERSION)]; // 20 is "qr version"
@@ -853,27 +833,27 @@ void qr_withdrawl_screen_waveshare_1_54(const char* qr_content)
     {
       if (qrcode_getModule(&qrcoded, qr.current_x, qr.current_y))
         display.fillRect(qr.start_x + qr.module_size * qr.current_x,
-          qr.start_y + qr.module_size * qr.current_y,
-          qr.module_size,
-          qr.module_size,
-          GxEPD_BLACK);
+                         qr.start_y + qr.module_size * qr.current_y,
+                         qr.module_size,
+                         qr.module_size,
+                         GxEPD_BLACK);
       else
         display.fillRect(qr.start_x + qr.module_size * qr.current_x,
-          qr.start_y + qr.module_size * qr.current_y,
-          qr.module_size,
-          qr.module_size,
-          GxEPD_WHITE);
+                         qr.start_y + qr.module_size * qr.current_y,
+                         qr.module_size,
+                         qr.module_size,
+                         GxEPD_WHITE);
     }
   }
   // draw the text messages on the screen
   display.setCursor(0, 4);
   display.setTextSize(2);
   display.setTextColor(GxEPD_BLACK, GxEPD_WHITE);
-  display.println("Please scan QR:");  // top message
+  display.println("Please scan QR:"); // top message
   display.setCursor(0, 170);
   display.setTextSize(2);
   display.setTextColor(GxEPD_BLACK, GxEPD_WHITE);
-  display.println("Press the \nbutton to reset");  // bottom message
+  display.println("Press the \nbutton to reset"); // bottom message
   display.nextPage();
   display.hibernate();
 }
@@ -935,7 +915,7 @@ void show_inserted_amount_waveshare_2_7(String amount_in_euro)
   display.nextPage();
 }
 
-void qr_withdrawl_screen_waveshare_2_7(const char* qr_content)
+void qr_withdrawl_screen_waveshare_2_7(const char *qr_content)
 {
   QRCode qrcoded;
   uint8_t qrcodeData[qrcode_getBufferSize(QR_VERSION)]; // 20 is "qr version"
@@ -956,21 +936,21 @@ void qr_withdrawl_screen_waveshare_2_7(const char* qr_content)
     {
       if (qrcode_getModule(&qrcoded, qr.current_x, qr.current_y))
         display.fillRect(qr.start_x + qr.module_size * qr.current_x,
-          qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_BLACK);
+                         qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_BLACK);
       else
         display.fillRect(qr.start_x + qr.module_size * qr.current_x,
-          qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_WHITE);
+                         qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_WHITE);
     }
   }
   display.setCursor(11, 5);
   display.setTextSize(2);
   display.setTextColor(GxEPD_BLACK, GxEPD_WHITE);
-  display.println("Please scan QR code:");  // top message
+  display.println("Please scan QR code:"); // top message
 
   display.setCursor(11, 155);
   display.setTextSize(2);
   display.setTextColor(GxEPD_BLACK, GxEPD_WHITE);
-  display.println("Reset - press button");  // bottom message
+  display.println("Reset - press button"); // bottom message
 
   display.nextPage();
   display.hibernate();
@@ -1067,7 +1047,7 @@ void show_inserted_amount_waveshare_2_13(String amount_in_euro)
   // button_pressed = false;
 }
 
-void qr_withdrawl_screen_waveshare_2_13(const char* qr_content)
+void qr_withdrawl_screen_waveshare_2_13(const char *qr_content)
 {
   QRCode qrcoded;
   uint8_t qrcodeData[qrcode_getBufferSize(QR_VERSION)]; // 20 is "qr version"
@@ -1088,16 +1068,16 @@ void qr_withdrawl_screen_waveshare_2_13(const char* qr_content)
     {
       if (qrcode_getModule(&qrcoded, qr.current_x, qr.current_y))
         display.fillRect(qr.start_x + qr.module_size * qr.current_x,
-          qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_BLACK);
+                         qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_BLACK);
       else
         display.fillRect(qr.start_x + qr.module_size * qr.current_x,
-          qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_WHITE);
+                         qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_WHITE);
     }
   }
   display.setCursor(0, 23);
   display.setTextSize(2);
   display.setTextColor(GxEPD_BLACK, GxEPD_WHITE);
-  display.println(" Scan\n\n  QR\n\n Code");  // top message
+  display.println(" Scan\n\n  QR\n\n Code"); // top message
 
   display.setCursor(181, 30);
   display.setTextSize(2);
@@ -1173,7 +1153,7 @@ void show_inserted_amount_waveshare_2_13_flex(String amount_in_euro)
   display.nextPage();
 }
 
-void qr_withdrawl_screen_waveshare_2_13_flex(const char* qr_content)
+void qr_withdrawl_screen_waveshare_2_13_flex(const char *qr_content)
 {
   QRCode qrcoded;
   uint8_t qrcodeData[qrcode_getBufferSize(QR_VERSION)]; // 20 is "qr version"
@@ -1194,16 +1174,16 @@ void qr_withdrawl_screen_waveshare_2_13_flex(const char* qr_content)
     {
       if (qrcode_getModule(&qrcoded, qr.current_x, qr.current_y))
         display.fillRect(qr.start_x + qr.module_size * qr.current_x,
-          qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_BLACK);
+                         qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_BLACK);
       else
         display.fillRect(qr.start_x + qr.module_size * qr.current_x,
-          qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_WHITE);
+                         qr.start_y + qr.module_size * qr.current_y, qr.module_size, qr.module_size, GxEPD_WHITE);
     }
   }
   display.setCursor(0, 12);
   display.setTextSize(2);
   display.setTextColor(GxEPD_BLACK, GxEPD_WHITE);
-  display.println(" Scan\n\n  QR\n\n code");  // top message
+  display.println(" Scan\n\n  QR\n\n code"); // top message
 
   display.setCursor(170, 37);
   display.setTextSize(1);
