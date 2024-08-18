@@ -41,13 +41,14 @@ Inputs and outputs:
 | 4 | Pulse input from the coin acceptor |
 | 15 | Pulse input of the dial disk | 
 | 12 | Query telephone handset fork |
+| 13 | Reserve |
 
 | GPIO | Outputs |
 |--------------|------------|
 | 32 | LED of the LED button |
-| 33 | Lock signal for the coin acceptor |
-| 21 | Background lighting (coins) |
-| 19 | Green arrow illumination |
+| 22 | Lock signal coin acceptor (inhibit) |
+| 21 | Background light (coins) |
+| 19 | Green arrow light |
 
 Interface with MP3 module:
 
