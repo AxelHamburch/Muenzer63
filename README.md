@@ -25,6 +25,7 @@ Muenzer 63: [info](http://www.oeffentlichetelefone.de/muenzfernsprecher_muenzfw_
 ESP32 NodeMCU: [Google](https://www.google.com/search?q=esp32+nodemcu) <br>
 Display: [Waveshare](https://www.waveshare.com/product/raspberry-pi/displays/e-paper/2.13inch-e-paper-hat-d.htm?___SID=U) <br>
 DFPlayer Mini - MP3-Player: [data sheet](https://wiki.dfrobot.com/DFPlayer_Mini_SKU_DFR0299) | [Github](https://github.com/DFRobot/DFRobotDFPlayerMini) | [info](https://www.elektronik-kompendium.de/sites/praxis/bauteil_dfplayer-mini.htm) | [code and video](https://prilchen.de/steuerbarer-mp3-files-mit-dfplayer/) <br>
+Coin acceptor: [Google](https://www.google.com/search?q=coin+acceptor) <br>
 PWM Mosfet D4184 (relay): [great documentation](https://github.com/technerdchris/boards/tree/master/D4184) <br>
 Dial: [wiki](https://de.wikipedia.org/wiki/Nummernschalter) <br>
 
