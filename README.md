@@ -1,7 +1,7 @@
 # Muenzer 63
 Muenzer 63 - An old remote dial coin box with money changer
 
-<img src="./assets/Bild3.jpg" width="600">
+<img src="./assets/Bild0.jpg" width="600">
 
 The Münzer 63 (manufacturer's designation Siemens AG: MünzFW63) is a coin-operated telephone which was introduced in 1963 and used until the early 1990s. Back then, it was good old German engineering, with lots of electromechanics and mechanical coin testing. It was rescued from the scrap heap by a good friend in the 90s and lovingly stored for 30 years before I was able to give it a second life. 
 
@@ -58,6 +58,21 @@ The pinout you can find [here.](./assets/ESP32-Pinout-Muenzer63.txt)
 As the ESP32 has two core processors, the code here has been optimized so that part of the program runs via the second processor. It is mainly the pulse query of the dial that is queried cyclically. The part of the ATM with the pulses from the coin selector runs on the second processor and is processed in a similar way to a step chain. 
 
 To protect the private wallet data, the LNbits wallet string is stored in the file "private_data.h". It is entered in .gitignore and is ignored when uploading to Github. This prevents you from accidentally uploading the wallet data. There is a file "private_data_example.h" in the "include" directory. It is an example file that must be copied in the same directory and renamed to "private_data.h". Only in this file the string of the LNbits wallet must be adapted. As the file is entered in .gitignore, the content is ignored by Git. Changes do not appear in Git and therefore cannot be accidentally uploaded to GitHub. 
+
+## Picutres of the Muenzer 63
+
+
+![](./assets/Bild1.jpg)  |  ![](./assets/Bild2.jpg)   |  ![](./assets/Bild3.jpg)
+:-------------------------:|:-------------------------:|:-------------------------:
+![](./assets/Bild4.jpg)  |  ![](./assets/Bild5.jpg)   |  ![](./assets/Bild6.jpg)
+:-------------------------:|:-------------------------:|:-------------------------:
+![](./assets/Bild7.jpg)  |  ![](./assets/Bild8.jpg) |  !  ![](./assets/Bild9.jpg)
+:-------------------------:|:-------------------------:|:-------------------------:
+![](./assets/Bild10.jpg)  |  ![](./assets/Bild11.jpg) |  ![](./assets/Bild12.jpg)
+:-------------------------:|:-------------------------:|:-------------------------:
+![](./assets/Bild13.jpg)  |  ![](./assets/Bild14.jpg) |  ![](./assets/Bild15.jpg)
+
+
 
 ## Special thanks to
 
