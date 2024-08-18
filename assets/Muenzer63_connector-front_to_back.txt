@@ -1,6 +1,6 @@
 ### Plug connector: Front to back ###
 
-# Socket to back (rear side solder pins) #
+# Socket to back (view: rear side solder pins) #
 
 		x	0	x	
 		x	9	x	
@@ -15,7 +15,7 @@ GND	WH/BU	x	5
 		x	2	x	RT	speaker
 		x	1	x	BU	speaker
 
-# Connector to front (rear side solder pins) #
+# Connector to front (view: rear side solder pins) #
 
 		x	0	x	
 		x	9	x	

@@ -7,7 +7,7 @@ GND		x	4	x	2
 coin inhibit	x	2	x	COIN
 12V		x	1	x	GND
 
-# Connector to front (rear side solder pins) #
+# Connector to front (view: rear side solder pins) #
 
 2 	GN	x	4	x	WH/BU	GND
 3 	BR	x	3	x	1 	dial
