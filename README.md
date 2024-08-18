@@ -61,7 +61,7 @@ Interface with display:
 |--------------|------------|
 | 18/23/25/25/27/33 | CLK/DIN/DC/CS/BUSY/RST |  
 
-## ESP32 Pinout Muenzer 63
+## Pinout and connectors
 
 The ESP32 pinout you can find [here.](./assets/ESP32-Pinout-Muenzer63.txt) <br>
 The connector front to back [here.](./assets/Muenzer63_connector-front_to_back.txt) <br>
