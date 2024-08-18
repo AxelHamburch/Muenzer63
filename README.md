@@ -83,6 +83,12 @@ UART Com: [microcontrollerslab.com](https://microcontrollerslab.com/esp32-uart-c
 ![](./assets/Bild10.jpg)  |  ![](./assets/Bild11.jpg) |  ![](./assets/Bild12.jpg)
 ![](./assets/Bild14.jpg)  |  ![](./assets/Bild15.jpg) |  ![](./assets/Bild16.jpg)
 
+## Photos from the original - beforehand
+
+![](./assets/x1.jpg)  |  ![](./assets/x2.jpg)   |  ![](./assets/x3.jpg)  |  ![](./assets/x4.jpg)   |  ![](./assets/x5.jpg)
+:------------------------:|:------------------------:|:------------------------:|:------------------------:|:------------------------:
+![](./assets/x6.jpg)  |  ![](./assets/x7.jpg)   |  ![](./assets/x8.jpg)  |  ![](./assets/x9.jpg)   |  
+
 ## Special thanks to
 
 [Daktari⚡️](https://x.com/MaunaLion) who rescued the Muenzer 63 from the scrap heap in the 90s and kept it in good condition for over 30 years.
