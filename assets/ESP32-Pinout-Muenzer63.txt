@@ -16,9 +16,9 @@ Pin	Def.	Use	   |	Pin	Def.	Use
 8	P5	           | 	8	P25	DC (GN)		
 9	TX2(P17) DFPlayer  |	9	P26	CS (OG)		
 10	RX2(P16) DFPlayer  |	10	P27	BUSY(VT)			
-11	P4	           |	11	P14	MOSFET				
-12	P2	           |	12	P12	COIN			
-13	P15	           |	13	P13				
+11	P4	Coin       |	11	P14	MOSFET (coin inhibit)				
+12	P2	           |	12	P12	Switch 1 (Telephone receiver fork)			
+13	P15	Dial       |	13	P13	Switch 2 (reserve)			
 14	GND     GND (BN)   |	14	GND	DFPlayer					
 15	3V3	3,3V(SR)   |	15	VIN 	5V	
                          [USB] 
@@ -36,13 +36,13 @@ Pin	Def.	Use	 |	Pin	Def.	Use
 6	P32	BUTTON	 |	6 	P19				
 7	P33	RST (WH) |	7	P18	CLK (YE)		
 8	P25	DC (GN)	 |	8	P5	
-9	P26	CS (OG)	 |	9	TX2 	2 von DFPlayer
-10	P27	BUSY(VT) |	10	RX2 	3 von DFPlayer	
-11	P14	MOSFET	 |	11	P4			
-12	P12	COIN	 |	12	P2			
-13	P13	    	 |	13	P15			
+9	P26	CS (OG)	 |	9	TX2 	2 on DFPlayer
+10	P27	BUSY(VT) |	10	RX2 	3 on DFPlayer	
+11	P14	MOSFET	 |	11	P4	Coin (pulses)		
+12	P12	Switch 1 |	12	P2			
+13	P13	Switch 2 |	13	P15	Dial (pulses)		
 14	GND	DFPlayer |	14	GND	GND (BN) {GND Puls}		
-15	VIN 	5V	 |	15	3V3	3,3V(SR)		
+15	VIN 	5V	 |	15	3V3	3,3V (SR)		
 		       [USB]		
 
 
