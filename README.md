@@ -66,7 +66,7 @@ To protect the private wallet data, the LNbits wallet string is stored in the fi
 :-------------------------:|:-------------------------:|:-------------------------:
 ![](./assets/Bild4.jpg)  |  ![](./assets/Bild5.jpg)   |  ![](./assets/Bild6.jpg)
 :-------------------------:|:-------------------------:|:-------------------------:
-![](./assets/Bild7.jpg)  |  ![](./assets/Bild8.jpg) |  !  ![](./assets/Bild9.jpg)
+![](./assets/Bild7.jpg)  |  ![](./assets/Bild8.jpg)   |  ![](./assets/Bild9.jpg)
 :-------------------------:|:-------------------------:|:-------------------------:
 ![](./assets/Bild10.jpg)  |  ![](./assets/Bild11.jpg) |  ![](./assets/Bild12.jpg)
 :-------------------------:|:-------------------------:|:-------------------------:
