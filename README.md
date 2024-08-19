@@ -102,9 +102,8 @@ and kept it in good condition for over 30 years.
 In addition to the beautiful exterior of the Muenzer 63, the heart of the project.
 
 
-[Ben Arc](https://x.com/arcbtc) and the LNbits community for the great [LNbits](https://lnbits.com/).
-<img src="./assets/lnbitsinside.png" width="100"><br>
-Without which there would never have been such beautiful lightning⚡️functions.<br>
+[Ben Arc](https://x.com/arcbtc) and the LNbits community for the great [LNbits](https://lnbits.com/). <img src="./assets/lnbitsinside.png" width="80"><br>
+Without which there would never have been such beautiful lightning⚡️functions. 🧡<br>
 
 ## If you like it or would like to know more
 
