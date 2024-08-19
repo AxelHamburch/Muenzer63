@@ -95,11 +95,15 @@ UART Com: [microcontrollerslab.com](https://microcontrollerslab.com/esp32-uart-c
 
 ## Special thanks to
 
-[Daktari⚡️](https://x.com/MaunaLion) who rescued the Muenzer 63 from the scrap heap in the 90s and kept it in good condition for over 30 years.
+[Daktari⚡️](https://x.com/MaunaLion) who rescued the Muenzer 63 from the scrap heap in the 90s<br>
+and kept it in good condition for over 30 years.
 
-[Flex](https://github.com/f321x) for the great [offline-LightningATM](https://github.com/f321x/offline-LightningATM-esp32). In addition to the beautiful exterior of the Muenzer 63, the heart of the project.
+[Flex](https://github.com/f321x) for the great [offline-LightningATM](https://github.com/f321x/offline-LightningATM-esp32).<br>
+In addition to the beautiful exterior of the Muenzer 63, the heart of the project.
 
-[Ben Arc](https://x.com/arcbtc) and the LNbits community for the great [LNbits](https://lnbits.com/), without which there would never have been such beautiful lightning⚡️functions.
+[Ben Arc](https://x.com/arcbtc) and the LNbits community for the great [LNbits](https://lnbits.com/),<br>
+without which there would never have been such beautiful lightning⚡️functions.
+<img src="./assets/lnbitsinside.png" width="330">
 
 ## If you like it or would like to know more
 

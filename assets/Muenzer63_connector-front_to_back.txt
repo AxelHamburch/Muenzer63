@@ -25,7 +25,9 @@ GND	WH/BU	x	5
 		x		
 5V	bl	x		
 			5	x	WH/BU	GND
-switch 2 GY	x	4	x	WH
-switch 1 YE	x	3	x	BN
-speaker	GN	x	2	x	WH	Option micro
-speaker	YE	x	1	x	BN	Option micro
+switch 2 GN	x	4	x	WH			
+switch 1 YE	x	3	x	BN			
+speaker	GN	x	2	x	WH	option micro	
+speaker	YE	x	1	x	BN	option micro 	
+
+    note: 2x cable with GN/YE/WH/BN and two single wires
