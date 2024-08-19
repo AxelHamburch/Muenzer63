@@ -103,7 +103,7 @@ In addition to the beautiful exterior of the Muenzer 63, the heart of the projec
 
 [Ben Arc](https://x.com/arcbtc) and the LNbits community for the great [LNbits](https://lnbits.com/),<br>
 without which there would never have been such beautiful lightning⚡️functions.
-<img src="./assets/lnbitsinside.png" width="330">
+<img src="./assets/lnbitsinside.png" width="80">
 
 ## If you like it or would like to know more
 
