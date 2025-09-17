@@ -78,7 +78,7 @@ void Task1code(void *pvParameters)
     }
   }
   Serial.println(F("DFPlayer Mini Startklar"));
-  myDFPlayer.volume(23); // Einstellung Lautstärke zwischen 0 bis max 30
+  myDFPlayer.volume(28); // Einstellung Lautstärke zwischen 0 bis max 30 (Standard 28)
   Serial.println();
 
   // Setup initialization
@@ -386,17 +386,17 @@ void wait_for_user_to_scan()
   delay(10000);
   digitalWrite(LED_BUTTON_PIN, HIGH); // light up the led
   button_pressed = false;
-  Serial.println("wait for user to press button or 10 minutes to go back to home screen");
-  while (!button_pressed && (millis() - time) < 600000)
+  Serial.println("wait for user to press button or 5 minutes to go back to home screen");
+  while (!button_pressed && (millis() - time) < 300000)
   {
     // start blinking after 30 seconds
-    if (!light_on && (millis() - time) > 45000)
+    if (!light_on && (millis() - time) > 30000)
     {
       digitalWrite(LED_BUTTON_PIN, HIGH);
       digitalWrite(K1_ARROW_PIN, HIGH);
       light_on = true;
     }
-    else if (light_on && (millis() - time) > 45000)
+    else if (light_on && (millis() - time) > 30000)
     {
       digitalWrite(LED_BUTTON_PIN, LOW);
       digitalWrite(K1_ARROW_PIN, LOW);
@@ -447,7 +447,7 @@ unsigned int detect_coin()
       digitalWrite(K1_ARROW_PIN, LOW);
       break;
     }
-    else if ((pulses == 0 && ((current_time - entering_time) > 160000) // deaktivere ATM Funktion nach 3 Minuten
+    else if ((pulses == 0 && ((current_time - entering_time) > 60000) // deaktivere ATM Funktion nach 1 Minuten
               && inserted_cents == 0) ||
              activeATM == false)
     {
