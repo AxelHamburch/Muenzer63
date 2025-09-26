@@ -202,7 +202,6 @@ void Task1code(void *pvParameters)
             Serial.println("ATM aktivieren");
             delay(2700);
             activeATM = true;
-            activeATMflanker = true;
           }
           if (d_tempDialPulses == 22)
           {
@@ -213,6 +212,7 @@ void Task1code(void *pvParameters)
             Serial.println("ATM deaktivieren");
             delay(2000);
             activeATM = false;
+            activeATMflanker = false;
           }
         }
         Serial.println("Start DFPlayer mit Nr. " + String(dial_final_pulse_count));
@@ -305,12 +305,12 @@ void loop()
     Serial.println("activeATM == true");
 
     // Initialisierung für den ersten Aufruf
-    if (activeATMflanker == true)
+    if (!activeATMflanker)
     {
       home_screen();
       digitalWrite(MOSFET_PIN, LOW);
       digitalWrite(LED_BUTTON_PIN, HIGH);
-      activeATMflanker = false;
+      activeATMflanker = true;
     }
 
     pulses = detect_coin(); // detect_coin() is a loop to detect the input of coins, will return the amount of pulses
@@ -455,6 +455,7 @@ unsigned int detect_coin()
       digitalWrite(LED_BUTTON_PIN, LOW);
       muenzfw_screen();
       activeATM = false;
+      activeATMflanker = false;  
       Serial.println("ATM deaktivieren");
       break;
     }
