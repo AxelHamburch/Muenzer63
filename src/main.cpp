@@ -317,7 +317,6 @@ void loop()
     if (pulses >= 2 && pulses <= 9)
     {
       digitalWrite(MOSFET_PIN, HIGH);
-      digitalWrite(LED_BUTTON_PIN, LOW);
       inserted_cents += COINS[pulses];
       show_inserted_amount(inserted_cents);
     }
@@ -329,7 +328,6 @@ void loop()
       qr_withdrawl_screen(lnurl);
       free(lnurl);
       wait_for_user_to_scan();
-      digitalWrite(LED_BUTTON_PIN, HIGH);
       home_screen();
       digitalWrite(MOSFET_PIN, LOW);
       inserted_cents = 0;
@@ -356,7 +354,6 @@ void loop()
       {
         if (DEBUG_MODE)
           Serial.println("Button pressed over 5 times, will clean screen...");
-        digitalWrite(LED_BUTTON_PIN, LOW);
         clean_screen();
         display_sleep();
         delay(30000);
@@ -381,10 +378,8 @@ void wait_for_user_to_scan()
   if (DEBUG_MODE)
     Serial.println("Waiting for user to scan qr code and press button...");
   light_on = true;
-  time = millis();                   // save start time
-  digitalWrite(LED_BUTTON_PIN, LOW); // light up the led
+  time = millis(); // save start time
   delay(10000);
-  digitalWrite(LED_BUTTON_PIN, HIGH); // light up the led
   button_pressed = false;
   Serial.println("wait for user to press button or 5 minutes to go back to home screen");
   while (!button_pressed && (millis() - time) < 300000)
@@ -392,13 +387,11 @@ void wait_for_user_to_scan()
     // start blinking after 30 seconds
     if (!light_on && (millis() - time) > 30000)
     {
-      digitalWrite(LED_BUTTON_PIN, HIGH);
       digitalWrite(K1_ARROW_PIN, HIGH);
       light_on = true;
     }
     else if (light_on && (millis() - time) > 30000)
     {
-      digitalWrite(LED_BUTTON_PIN, LOW);
       digitalWrite(K1_ARROW_PIN, LOW);
       light_on = false;
     }
