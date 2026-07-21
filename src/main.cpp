@@ -1,4 +1,5 @@
 #include "lightning_atm.h"
+#include "fossa_crypto.hpp"
 
 #include "DFRobotDFPlayerMini.h"
 #include "HardwareSerial.h"
@@ -8,6 +9,9 @@ DFRobotDFPlayerMini myDFPlayer;
 // ATM aktivieren
 bool activeATM = false;
 bool activeATMflanker = false;
+
+// FOSSA/lnurldevice Backend wird automatisch aus lnurlDeviceString erkannt (in setup())
+bool fossaMode = false;
 
 // Zustände der Pulserkennung Wahlscheibe
 enum PulseDetectionState
@@ -284,6 +288,7 @@ void setup()
   baseURLATM = getValue(lnurlDeviceString, ',', 0);         // setup wallet data from string
   secretATM = getValue(lnurlDeviceString, ',', 1);
   currencyATM = getValue(lnurlDeviceString, ',', 2);
+  fossaMode = (lnurlDeviceString.indexOf("/fossa/") >= 0);  // auto-detect backend from URL
 }
 
 void loop()
@@ -324,10 +329,17 @@ void loop()
     {
       digitalWrite(MOSFET_PIN, HIGH);
       button_pressed = false;
-      char *lnurl = makeLNURL(inserted_cents);
-      qr_withdrawl_screen(lnurl);
-      free(lnurl);
-      wait_for_user_to_scan();
+      try
+      {
+        // makeLNURL can raise
+        String lnurl = makeLNURL(inserted_cents);
+        qr_withdrawl_screen(lnurl.c_str());
+        wait_for_user_to_scan();
+      }
+      catch (const std::exception &e)
+      {
+        Serial.println(e.what());
+      }
       home_screen();
       digitalWrite(MOSFET_PIN, LOW);
       inserted_cents = 0;
@@ -632,105 +644,17 @@ String get_amount_string(int amount_in_cents)
 
 ////////////////////////////////////////////
 ///////////////LNURL STUFF//////////////////
-////USING STEPAN SNIGREVS GREAT CRYTPO//////
-////////////THANK YOU STEPAN////////////////
 ////////////////////////////////////////////
+// Die eigentliche Verschluesselung liegt in fossa_crypto.ino (AES-CBC fossa
+// bzw. XOR-HMAC lnurldevice). Hier wird nur nach Backend weitergeleitet.
 
-int xor_encrypt(uint8_t *output, size_t outlen, uint8_t *key, size_t keylen, uint8_t *nonce, size_t nonce_len, uint64_t pin, uint64_t amount_in_cents)
+String makeLNURL(float total)
 {
-  // check we have space for all the data:
-  // <variant_byte><len|nonce><len|payload:{pin}{amount}><hmac>
-  if (outlen < 2 + nonce_len + 1 + lenVarInt(pin) + 1 + lenVarInt(amount_in_cents) + 8)
+  if (fossaMode)
   {
-    return 0;
+    return makeLNURLFossa(secretATM, total, baseURLATM);
   }
-
-  int cur = 0;
-  output[cur] = 1; // variant: XOR encryption
-  cur++;
-
-  // nonce_len | nonce
-  output[cur] = nonce_len;
-  cur++;
-  memcpy(output + cur, nonce, nonce_len);
-  cur += nonce_len;
-
-  // payload, unxored first - <pin><currency byte><amount>
-  int payload_len = lenVarInt(pin) + 1 + lenVarInt(amount_in_cents);
-  output[cur] = (uint8_t)payload_len;
-  cur++;
-  uint8_t *payload = output + cur;                                 // pointer to the start of the payload
-  cur += writeVarInt(pin, output + cur, outlen - cur);             // pin code
-  cur += writeVarInt(amount_in_cents, output + cur, outlen - cur); // amount
-  cur++;
-
-  // xor it with round key
-  uint8_t hmacresult[32];
-  SHA256 h;
-  h.beginHMAC(key, keylen);
-  h.write((uint8_t *)"Round secret:", 13);
-  h.write(nonce, nonce_len);
-  h.endHMAC(hmacresult);
-  for (int i = 0; i < payload_len; i++)
-  {
-    payload[i] = payload[i] ^ hmacresult[i];
-  }
-
-  // add hmac to authenticate
-  h.beginHMAC(key, keylen);
-  h.write((uint8_t *)"Data:", 5);
-  h.write(output, cur);
-  h.endHMAC(hmacresult);
-  memcpy(output + cur, hmacresult, 8);
-  cur += 8;
-
-  // return number of bytes written to the output
-  return cur;
-}
-
-char *makeLNURL(float total)
-{
-  int randomPin = random(1000, 9999);
-  byte nonce[8];
-  for (int i = 0; i < 8; i++)
-  {
-    nonce[i] = random(256);
-  }
-  byte payload[51]; // 51 bytes is max one can get with xor-encryption
-  size_t payload_len = xor_encrypt(payload, sizeof(payload), (uint8_t *)secretATM.c_str(), secretATM.length(), nonce, sizeof(nonce), randomPin, float(total));
-  String preparedURL = baseURLATM + "?atm=1&p=";
-  preparedURL += toBase64(payload, payload_len, BASE64_URLSAFE | BASE64_NOPADDING);
-  if (DEBUG_MODE)
-    Serial.println(preparedURL);
-  char Buf[200];
-  preparedURL.toCharArray(Buf, 200);
-  char *url = Buf;
-  byte *data = (byte *)calloc(strlen(url) * 2, sizeof(byte));
-  if (!data)
-    return (NULL);
-  size_t len = 0;
-  int res = convert_bits(data, &len, 5, (byte *)url, strlen(url), 8, 1);
-  char *charLnurl = (char *)calloc(strlen(url) * 2, sizeof(byte));
-  if (!charLnurl)
-  {
-    free(data);
-    return (NULL);
-  }
-  bech32_encode(charLnurl, "lnurl", data, len);
-  to_upper(charLnurl);
-  free(data);
-  return (charLnurl);
-}
-
-void to_upper(char *arr)
-{
-  for (size_t i = 0; i < strlen(arr); i++)
-  {
-    if (arr[i] >= 'a' && arr[i] <= 'z')
-    {
-      arr[i] = arr[i] - 'a' + 'A';
-    }
-  }
+  return makeLNURLLegacy(secretATM, total, baseURLATM);
 }
 
 // Function to seperate the LNURLDevice string in key, url and currency
