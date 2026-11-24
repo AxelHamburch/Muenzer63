@@ -11,14 +11,26 @@
 #include <ctype.h>
 
 // ########################################
-// ###########    USER ACTION   ###########
+// ###########  DEVICE STRING   ###########
 // ########################################
-// Setup the the wallet in "private_data.h"
+// Normal way: enter the device string with the Web Installer (installer/index.html).
+// It is stored on the ESP32 in SPIFFS (/config.json) and survives firmware updates.
+//
+// Fallback: hard-code the device string in "private_data.h"
+// (see "private_data_example.h"). It is only used when no device string was
+// stored via the Web Installer. The installer build (-DINSTALLER_BUILD=1)
+// always ignores "private_data.h", so a personal string never ends up in a
+// published firmware.
+#if !defined(INSTALLER_BUILD) && __has_include("private_data.h")
 #include "private_data.h"
-// See "private_data_example.h" how it works
+#else
+const String lnurlDeviceString = "";
+#endif
 // ########################################
-// ########################################
-// ########################################
+
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
 
 // select the display class and display driver class in the following file (new style):
 // 1.54 inch Waveshare e-paper display is "GxEPD2_DRIVER_CLASS GxEPD2_150_BN"
@@ -159,6 +171,7 @@ void IRAM_ATTR button_pressed_itr();
 void wait_for_user_to_scan();
 String getValue(String data, char separator, int index);
 void display_sleep();
+void config_screen(bool canExitByButton);
 void test_macro();
 
 // Waveshare 1.54 inch e-ink display functions

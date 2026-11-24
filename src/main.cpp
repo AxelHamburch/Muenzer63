@@ -1,5 +1,7 @@
 #include "lightning_atm.h"
 #include "fossa_crypto.hpp"
+#include "FS.h"
+#include "SPIFFS.h"
 
 #include "DFRobotDFPlayerMini.h"
 #include "HardwareSerial.h"
@@ -10,8 +12,217 @@ DFRobotDFPlayerMini myDFPlayer;
 bool activeATM = false;
 bool activeATMflanker = false;
 
-// FOSSA/lnurldevice Backend wird automatisch aus lnurlDeviceString erkannt (in setup())
+// FOSSA/lnurldevice Backend wird automatisch aus dem Device String erkannt (in setup())
 bool fossaMode = false;
+
+// Device String: aus SPIFFS (/config.json, geschrieben vom Web Installer),
+// sonst Fallback aus private_data.h (lnurlDeviceString)
+String deviceString = "";
+
+// ─── Web Installer / Serial Config ───────────────────────────────────────────
+// Protokoll (115200 Baud, Zeilenende \n), kompatibel zum fossa Web Installer:
+//   /config                       Config-Modus starten (nur kurz nach dem Booten)
+//   /ping                         -> "/pong <version>" (nur im Config-Modus)
+//   /file-remove <file>           Datei loeschen
+//   /file-append <file> <data>    <data> + Zeilenende anhaengen -> "appendToFile: <file>"
+//   /file-read <file>             -> "/file-read <zeile>" ... "/file-done"
+//   /config-done                  Config-Modus verlassen, Neustart
+#define CONFIG_FILE "config.json"
+#define CONFIG_SERIAL_WINDOW_MS 3000 // Zeitfenster nach dem Booten fuer "/config"
+#define CONFIG_BUTTON_HOLD_MS 1000   // LED-Button so lange beim Einschalten halten
+
+// Liest "config_lnurl" aus /config.json: [{"name":"config_lnurl","value":"..."}]
+String readDeviceStringFromFlash()
+{
+  File f = SPIFFS.open("/" CONFIG_FILE, "r");
+  if (!f)
+    return "";
+  String json = f.readString();
+  f.close();
+  int nameIdx = json.indexOf("\"config_lnurl\"");
+  if (nameIdx < 0)
+    return "";
+  int valueIdx = json.indexOf("\"value\"", nameIdx);
+  if (valueIdx < 0)
+    return "";
+  int start = json.indexOf('"', json.indexOf(':', valueIdx) + 1);
+  if (start < 0)
+    return "";
+  start++;
+  int end = json.indexOf('"', start);
+  if (end <= start)
+    return "";
+  String value = json.substring(start, end);
+  value.trim();
+  return value;
+}
+
+void configReadFile(const String &path)
+{
+  Serial.println("readFile: " + path);
+  File f = SPIFFS.open("/" + path, "r");
+  if (f)
+  {
+    while (f.available())
+    {
+      String line = f.readStringUntil('\n');
+      line.trim();
+      if (line.length() > 0)
+        Serial.println("/file-read " + line);
+    }
+    f.close();
+  }
+  Serial.println("");
+  Serial.println("/file-done");
+}
+
+void configAppendFile(const String &path, const String &data)
+{
+  File f = SPIFFS.open("/" + path, FILE_APPEND);
+  if (!f)
+    f = SPIFFS.open("/" + path, FILE_WRITE);
+  if (f)
+  {
+    f.println(data);
+    f.close();
+  }
+  Serial.println("appendToFile: " + path);
+}
+
+// Blockierender Config-Modus. Wird immer mit Neustart verlassen, damit die
+// neue Konfiguration sauber geladen wird.
+// allowButton = true: kurzer Druck auf den LED-Button beendet den Modus
+// (nur wenn bereits ein Device String vorhanden ist).
+void executeConfig(bool allowButton)
+{
+  digitalWrite(MOSFET_PIN, HIGH); // Muenzpruefer sperren
+  config_screen(allowButton);
+  Serial.println("/config-mode active - waiting for commands");
+
+  // Button ist evtl. noch vom Einschalten gedrueckt -> erst Loslassen abwarten
+  bool armed = false;
+  bool pressed = false;
+  unsigned long pressStart = 0;
+  unsigned long lastBlink = 0;
+  bool ledOn = false;
+
+  while (true)
+  {
+    // LED blinkt langsam (1 Hz) im Config-Modus
+    if (millis() - lastBlink >= 500)
+    {
+      lastBlink = millis();
+      ledOn = !ledOn;
+      digitalWrite(LED_BUTTON_PIN, ledOn ? HIGH : LOW);
+    }
+
+    if (allowButton)
+    {
+      bool down = (digitalRead(BUTTON_PIN) == LOW);
+      if (!armed)
+      {
+        if (!down)
+          armed = true;
+      }
+      else if (down && !pressed)
+      {
+        pressed = true;
+        pressStart = millis();
+      }
+      else if (!down && pressed)
+      {
+        pressed = false;
+        if (millis() - pressStart > 50) // entprellen
+        {
+          Serial.println("/config-mode exit by button");
+          Serial.flush();
+          delay(300);
+          ESP.restart();
+        }
+      }
+    }
+
+    if (Serial.available() == 0)
+    {
+      delay(10);
+      continue;
+    }
+
+    String data = Serial.readStringUntil('\n');
+    data.trim();
+    if (data.length() == 0)
+      continue;
+
+    int spacePos = data.indexOf(' ');
+    String cmd = (spacePos >= 0) ? data.substring(0, spacePos) : data;
+    String arg = (spacePos >= 0) ? data.substring(spacePos + 1) : "";
+    int argSpace = arg.indexOf(' ');
+    String path = (argSpace >= 0) ? arg.substring(0, argSpace) : arg;
+    String payload = (argSpace >= 0) ? arg.substring(argSpace + 1) : "";
+
+    if (cmd != "/file-append") // lange Zeilen (Config-JSON) nicht komplett zurueckgeben
+      Serial.println("received: " + data);
+
+    if (cmd == "/ping")
+      Serial.println("/pong " FIRMWARE_VERSION);
+    else if (cmd == "/config")
+      Serial.println("/config-mode active");
+    else if (cmd == "/file-remove")
+    {
+      SPIFFS.remove("/" + path);
+      Serial.println("removeFile: " + path);
+    }
+    else if (cmd == "/file-append")
+      configAppendFile(path, payload);
+    else if (cmd == "/file-read")
+      configReadFile(path);
+    else if (cmd == "/config-done")
+    {
+      Serial.println("/config-done");
+      Serial.flush();
+      delay(300);
+      ESP.restart();
+    }
+    else
+      Serial.println("command unknown");
+  }
+}
+
+// Nach dem Booten kurz auf "/config" vom Web Installer warten.
+// So kann der Installer ("Restart device") den Config-Modus ohne Button starten.
+void waitForSerialConfig()
+{
+  unsigned long start = millis();
+  while (millis() - start < CONFIG_SERIAL_WINDOW_MS)
+  {
+    if (Serial.available() > 0)
+    {
+      String cmd = Serial.readStringUntil('\n');
+      cmd.trim();
+      if (cmd == "/config")
+      {
+        Serial.println("/config-mode serial");
+        executeConfig(deviceString.length() > 0);
+      }
+    }
+    delay(20);
+  }
+}
+
+// LED-Button beim Einschalten gedrueckt halten -> Config-Modus
+bool buttonHeldAtBoot()
+{
+  if (digitalRead(BUTTON_PIN) != LOW)
+    return false;
+  unsigned long start = millis();
+  while (millis() - start < CONFIG_BUTTON_HOLD_MS)
+  {
+    if (digitalRead(BUTTON_PIN) != LOW)
+      return false;
+    delay(10);
+  }
+  return true;
+}
 
 // Zustände der Pulserkennung Wahlscheibe
 enum PulseDetectionState
@@ -255,8 +466,43 @@ void updateArrow()
 void setup()
 {
   initialize_display(); // connection to the e-ink display
+  Serial.setRxBufferSize(1024); // Platz fuer das Config-JSON vom Web Installer
   Serial.begin(115200);
   delay(500);
+  Serial.println();
+  Serial.println("[BOOT] Muenzer63 firmware " FIRMWARE_VERSION);
+
+  pinMode(K1_ARROW_PIN, OUTPUT);     // Initialize pin as an output
+  pinMode(COIN_PIN, INPUT_PULLUP);   // coin acceptor input
+  pinMode(LED_BUTTON_PIN, OUTPUT);   // LED of the LED Button
+  pinMode(BUTTON_PIN, INPUT_PULLUP); // Button
+  pinMode(MOSFET_PIN, OUTPUT);       // mosfet relay to block the coin acceptor
+  digitalWrite(MOSFET_PIN, HIGH);    // set it low to accept coins, high to block coins
+
+  // ── Device String laden: SPIFFS (Web Installer), sonst private_data.h ──
+  if (!SPIFFS.begin(true))
+    Serial.println("[SETUP] SPIFFS mount failed");
+  deviceString = readDeviceStringFromFlash();
+  if (deviceString.length() > 0)
+    Serial.println("[SETUP] Device string loaded from flash (Web Installer)");
+  else if (lnurlDeviceString.length() > 0)
+  {
+    deviceString = lnurlDeviceString;
+    Serial.println("[SETUP] Device string from private_data.h (fallback)");
+  }
+
+  // ── Config-Modus (vor Task1, damit nur ein Kern auf Serial schreibt) ──
+  if (deviceString.length() == 0)
+  {
+    Serial.println("/config-mode no config found");
+    executeConfig(false); // bleibt bis /config-done, dann Neustart
+  }
+  if (buttonHeldAtBoot())
+  {
+    Serial.println("/config-mode button");
+    executeConfig(true);
+  }
+  waitForSerialConfig();
 
   // create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
   xTaskCreatePinnedToCore(
@@ -272,23 +518,20 @@ void setup()
 
   if (DEBUG_MODE) // serial connection for debugging over USB
   {
-    sleep(3);
     Serial.println("Setup with debug mode..."); // for monitoring with serial monitor to debug
     Serial.println("Selected display type: " + display_type);
   }
-  pinMode(K1_ARROW_PIN, OUTPUT);                            // Initialize pin as an output
-  pinMode(COIN_PIN, INPUT_PULLUP);                          // coin acceptor input
-  pinMode(LED_BUTTON_PIN, OUTPUT);                          // LED of the LED Button
-  pinMode(BUTTON_PIN, INPUT_PULLUP);                        // Button
-  pinMode(MOSFET_PIN, OUTPUT);                              // mosfet relay to block the coin acceptor
-  digitalWrite(MOSFET_PIN, HIGH);                           // set it low to accept coins, high to block coins
   attachInterrupt(BUTTON_PIN, button_pressed_itr, FALLING); // interrupt, will set button_pressed to true when button is pressed
   muenzfw_screen();                                         // will show first screen
-  digitalWrite(LED_BUTTON_PIN, LOW);                        // light up the led
-  baseURLATM = getValue(lnurlDeviceString, ',', 0);         // setup wallet data from string
-  secretATM = getValue(lnurlDeviceString, ',', 1);
-  currencyATM = getValue(lnurlDeviceString, ',', 2);
-  fossaMode = (lnurlDeviceString.indexOf("/fossa/") >= 0);  // auto-detect backend from URL
+  digitalWrite(LED_BUTTON_PIN, LOW);                        // LED off while ATM is inactive
+  baseURLATM = getValue(deviceString, ',', 0);              // setup wallet data from string
+  secretATM = getValue(deviceString, ',', 1);
+  currencyATM = getValue(deviceString, ',', 2);
+  fossaMode = (deviceString.indexOf("/lnurldevice/") < 0); // FOSSA (AES) unless lnurldevice URL
+  Serial.println("[SETUP] baseURL : " + baseURLATM);
+  Serial.println("[SETUP] secret  : " + (secretATM.length() > 6 ? secretATM.substring(0, 4) + "..." + secretATM.substring(secretATM.length() - 2) : String("***")));
+  Serial.println("[SETUP] currency: " + currencyATM);
+  Serial.println(String("[SETUP] mode    : ") + (fossaMode ? "fossa (AES)" : "lnurldevice (XOR)"));
 }
 
 void loop()
@@ -559,6 +802,35 @@ void muenzfw_screen()
     Serial.println("No suitable display class defined.");
   if (DEBUG_MODE)
     Serial.println("Home screen printed.");
+}
+
+// Anzeige im Config-Modus (Web Installer). Ein Layout fuer alle Displays,
+// skaliert nach Displaybreite.
+void config_screen(bool canExitByButton)
+{
+  bool large = display.width() >= 250 || display.height() >= 250;
+  display.setRotation(1);
+  display.setFullWindow();
+  display.firstPage();
+  display.setTextColor(GxEPD_BLACK, GxEPD_WHITE);
+
+  display.setTextSize(large ? 2 : 1);
+  display.setCursor(3, 10);
+  display.println("USB CONFIG MODE");
+
+  display.setTextSize(1);
+  display.setCursor(3, large ? 40 : 30);
+  display.println(" Connect USB and open the");
+  display.println(" Muenzer63 Web Installer.");
+  display.println();
+  display.println(" Firmware: " FIRMWARE_VERSION);
+  if (canExitByButton)
+  {
+    display.println();
+    display.println(" Short press LED button: exit");
+  }
+  display.nextPage();
+  display.hibernate();
 }
 
 void show_inserted_amount(int amount_in_cents)

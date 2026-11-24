@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Muenzer63 Web Installer</title>
+  <meta name="description" content="Flash and configure your Muenzer63 Lightning ATM from the browser" />
+  <link rel="stylesheet" href="./assets/style.css" />
+  <script src="./assets/serial.js"></script>
+  <script type="module" src="https://unpkg.com/esp-web-tools@9/dist/web/install-button.js?module"></script>
+</head>
+<body>
+<div class="wrapper">
+
+  <noscript><p>JavaScript is required for this page.</p></noscript>
+
+  <h1>MUENZER63 ⚡ WEB INSTALLER</h1>
+  <p class="sub">Flash the firmware and set the device string of your Muenzer63 (pay phone Lightning ATM, ESP32)
+    from the browser. Use Google Chrome or Microsoft Edge on a desktop computer.</p>
+
+  <!-- ───────────── 1. Flash ───────────── -->
+  <section id="flash">
+    <h2>1 – Flash firmware</h2>
+    <ul>
+      <li>Connect the ESP32 of the Muenzer63 to your computer via USB.</li>
+      <li>Leave the latest firmware version selected.</li>
+      <li>Press <b>Flash</b> and follow the instructions. Choose <i>Erase device</i> for a fresh install.</li>
+    </ul>
+    <div class="row">
+      <select id="firmware-version">
+        <option value="./firmware/v977405/manifest.json">v977405 (Latest)</option>
+      </select>
+      <esp-web-install-button id="flash-button" manifest="./firmware/v977405/manifest.json?_t=0">
+        <button slot="activate" class="primary">🔥 Flash</button>
+        <span slot="unsupported">Your browser does not support installing on ESP devices. Use Google Chrome or Microsoft Edge.</span>
+        <span slot="not-allowed">Not allowed on HTTP – open this page via HTTPS.</span>
+      </esp-web-install-button>
+    </div>
+    <p class="hint">Without <i>Erase device</i> the stored device string is kept when you update the firmware.</p>
+  </section>
+
+  <!-- ───────────── 2. Connect ───────────── -->
+  <section id="connect">
+    <h2>2 – Connect</h2>
+    <ul>
+      <li>Close other programs that use the USB port (serial monitor, flash dialog).</li>
+      <li>Press <b>Connect</b> and select the serial port of the ESP32.</li>
+      <li>The page puts the device into <b>config mode</b> automatically. A device without a stored
+        device string (fresh install) starts in config mode by itself and shows <i>USB CONFIG MODE</i>.</li>
+      <li>If config mode does not start, press <b>Restart device</b>. As a fallback, hold the
+        <b>LED button</b> while switching the Muenzer63 on. The LED blinks in config mode.</li>
+    </ul>
+    <div class="row">
+      <button id="connect-button">🔌 Connect</button>
+      <button id="restart-button" disabled>🔄 Restart device</button>
+      <button id="disconnect-button" disabled>⏏ Disconnect</button>
+      <span id="connection-status" class="pill">❌ Not connected</span>
+      <span id="config-mode-status" class="pill">❌ No config mode</span>
+    </div>
+    <p class="hint" id="firmware-info"></p>
+  </section>
+
+  <!-- ───────────── 3. Configure ───────────── -->
+  <section id="configure">
+    <h2>3 – Configure</h2>
+    <p class="hint"><b>Read config</b> loads the device string currently stored on the device.</p>
+
+    <div class="row">
+      <button id="read-button" disabled>📖 Read config</button>
+      <button id="write-button" disabled class="primary">💾 Write config</button>
+      <button id="finish-button" disabled>✅ Finish &amp; restart</button>
+    </div>
+
+    <form id="config-form" autocomplete="off" onsubmit="return false;">
+      <div class="field">
+        <label for="config_lnurl">Device string from LNbits</label>
+        <input type="text" id="config_lnurl" spellcheck="false"
+               placeholder="https://your-lnbits.com/fossa/api/v1/lnurl/XXXXX,XXXXXXXXXXXXXXXX,EUR" />
+        <div class="error" data-error-for="config_lnurl"></div>
+        <p class="hint">Copy the complete string from the Fossa (or LNURLDevice) extension in LNbits:
+          <code>URL,secret,currency</code></p>
+      </div>
+    </form>
+
+    <div id="message"></div>
+    <div class="debug-console" id="console"></div>
+  </section>
+
+  <footer>
+    <p>Muenzer63 – Lightning ATM in a pay phone ·
+      <a href="https://github.com/AxelHamburch/Muenzer63" target="_blank" rel="noopener noreferrer">github.com/AxelHamburch/Muenzer63</a></p>
+  </footer>
+</div>
+
+<script src="./assets/installer.js"></script>
+</body>
+</html>
