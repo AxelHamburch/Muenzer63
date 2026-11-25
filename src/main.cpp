@@ -1,5 +1,7 @@
 #include "lightning_atm.h"
 #include "fossa_crypto.hpp"
+#include "FS.h"
+#include "SPIFFS.h"
 
 #include "DFRobotDFPlayerMini.h"
 #include "HardwareSerial.h"
@@ -7,11 +9,297 @@ HardwareSerial SerialPort2(2); // use UART2 (UART0 is used for terminal, UART1 i
 DFRobotDFPlayerMini myDFPlayer;
 
 // ATM aktivieren
-bool activeATM = false;
-bool activeATMflanker = false;
+volatile bool activeATM = false; // wird von Core 0 (Waehlscheibe) geaendert
+bool activeATMflanker = false;   // true, solange loop() im ATM-Betrieb ist
 
-// FOSSA/lnurldevice Backend wird automatisch aus lnurlDeviceString erkannt (in setup())
+// FOSSA/lnurldevice Backend wird automatisch aus dem Device String erkannt (in setup())
 bool fossaMode = false;
+
+// Device String: aus SPIFFS (/config.json, geschrieben vom Web Installer)
+String deviceString = "";
+
+// ─── Logging (serielle Ausgabe, 115200 Baud) ─────────────────────────────────
+volatile bool coinListening = false;      // true, solange coinTaskCode() Impulse zaehlt
+volatile unsigned int coinPulses = 0;     // gezaehlte Impulse der aktuellen Muenze
+volatile unsigned long coinLastPulse = 0; // Zeitpunkt des letzten Impulses
+volatile unsigned int coinEdgesUnused = 0; // Muenzsignale, waehrend nicht gezaehlt wird
+volatile bool buttonLogPending = false;   // wird im Button-Interrupt gesetzt
+int coinBlockState = -1;                  // -1 unbekannt, 0 entriegelt, 1 blockiert
+
+// Zeile mit Zeitstempel (Sekunden seit dem Booten). printf schreibt am Stueck,
+// damit sich die Ausgaben beider Kerne nicht vermischen.
+void logEvent(const String &text)
+{
+  if (DEBUG_MODE)
+    Serial.printf("[%9.3f] %s\n", millis() / 1000.0, text.c_str());
+}
+
+// Einzige Stelle, die die Muenzsperre schaltet. Protokolliert jeden Wechsel.
+// Ist der ATM nicht aktiv, bleibt der Muenzer immer blockiert.
+portMUX_TYPE coinBlockMux = portMUX_INITIALIZER_UNLOCKED;
+void setCoinBlock(bool block, const char *reason)
+{
+  portENTER_CRITICAL(&coinBlockMux); // beide Kerne schalten die Sperre
+  if (!activeATM)
+    block = true;
+  digitalWrite(MOSFET_PIN, block ? HIGH : LOW); // HIGH = blockiert
+  bool changed = (coinBlockState != (int)block);
+  coinBlockState = block;
+  portEXIT_CRITICAL(&coinBlockMux);
+  if (changed)
+  {
+    logEvent(String(block ? "Muenzer BLOCKIERT (" : "Muenzer ENTRIEGELT (") + reason + ")");
+  }
+}
+
+void IRAM_ATTR coin_signal_itr()
+{
+  if (!coinListening)
+    coinEdgesUnused++;
+}
+
+// ─── Muenzimpulse ────────────────────────────────────────────────────────────
+// Zaehler zuruecksetzen, Impulse zaehlen und Muenzer entriegeln.
+void openCoinAcceptor(const char *reason)
+{
+  coinPulses = 0;
+  coinListening = true;
+  setCoinBlock(false, reason);
+}
+
+// Eigener Task, damit auch waehrend des (langsamen) Bildaufbaus gezaehlt wird.
+// Beim ersten Impuls wird der Muenzer blockiert: immer nur eine Muenze.
+void coinTaskCode(void *pvParameters)
+{
+  bool prev_value = digitalRead(COIN_PIN);
+  for (;;)
+  {
+    bool read_value = digitalRead(COIN_PIN);
+    if (coinListening && read_value != prev_value && !read_value)
+    {
+      vTaskDelay(pdMS_TO_TICKS(35)); // entprellen
+      read_value = digitalRead(COIN_PIN);
+      if (!read_value)
+      {
+        coinLastPulse = millis(); // vor dem Zaehler setzen, detect_coin() liest beides
+        coinPulses++;
+        setCoinBlock(true, "Muenze wird gezaehlt");
+        logEvent("Muenzimpuls " + String(coinPulses));
+      }
+      else
+      {
+        logEvent("Muenzsignal kuerzer als 35 ms, ignoriert");
+      }
+    }
+    prev_value = read_value;
+    vTaskDelay(1);
+  }
+}
+
+// ─── Web Installer / Serial Config ───────────────────────────────────────────
+// Protokoll (115200 Baud, Zeilenende \n), kompatibel zum fossa Web Installer:
+//   /config                       Config-Modus starten (nur kurz nach dem Booten)
+//   /ping                         -> "/pong <version>" (nur im Config-Modus)
+//   /file-remove <file>           Datei loeschen
+//   /file-append <file> <data>    <data> + Zeilenende anhaengen -> "appendToFile: <file>"
+//   /file-read <file>             -> "/file-read <zeile>" ... "/file-done"
+//   /config-done                  Config-Modus verlassen, Neustart
+#define CONFIG_FILE "config.json"
+#define CONFIG_SERIAL_WINDOW_MS 3000 // Zeitfenster nach dem Booten fuer "/config"
+#define CONFIG_BUTTON_HOLD_MS 1000   // LED-Button so lange beim Einschalten halten
+
+// Liest "config_lnurl" aus /config.json: [{"name":"config_lnurl","value":"..."}]
+String readDeviceStringFromFlash()
+{
+  File f = SPIFFS.open("/" CONFIG_FILE, "r");
+  if (!f)
+    return "";
+  String json = f.readString();
+  f.close();
+  int nameIdx = json.indexOf("\"config_lnurl\"");
+  if (nameIdx < 0)
+    return "";
+  int valueIdx = json.indexOf("\"value\"", nameIdx);
+  if (valueIdx < 0)
+    return "";
+  int start = json.indexOf('"', json.indexOf(':', valueIdx) + 1);
+  if (start < 0)
+    return "";
+  start++;
+  int end = json.indexOf('"', start);
+  if (end <= start)
+    return "";
+  String value = json.substring(start, end);
+  value.trim();
+  return value;
+}
+
+void configReadFile(const String &path)
+{
+  Serial.println("readFile: " + path);
+  File f = SPIFFS.open("/" + path, "r");
+  if (f)
+  {
+    while (f.available())
+    {
+      String line = f.readStringUntil('\n');
+      line.trim();
+      if (line.length() > 0)
+        Serial.println("/file-read " + line);
+    }
+    f.close();
+  }
+  Serial.println("");
+  Serial.println("/file-done");
+}
+
+void configAppendFile(const String &path, const String &data)
+{
+  File f = SPIFFS.open("/" + path, FILE_APPEND);
+  if (!f)
+    f = SPIFFS.open("/" + path, FILE_WRITE);
+  if (f)
+  {
+    f.println(data);
+    f.close();
+  }
+  Serial.println("appendToFile: " + path);
+}
+
+// Blockierender Config-Modus. Wird immer mit Neustart verlassen, damit die
+// neue Konfiguration sauber geladen wird.
+// allowButton = true: kurzer Druck auf den LED-Button beendet den Modus
+// (nur wenn bereits ein Device String vorhanden ist).
+void executeConfig(bool allowButton)
+{
+  setCoinBlock(true, "Config-Modus");
+  config_screen(allowButton);
+  Serial.println("/config-mode active - waiting for commands");
+
+  // Button ist evtl. noch vom Einschalten gedrueckt -> erst Loslassen abwarten
+  bool armed = false;
+  bool pressed = false;
+  unsigned long pressStart = 0;
+  unsigned long lastBlink = 0;
+  bool ledOn = false;
+
+  while (true)
+  {
+    // LED blinkt langsam (1 Hz) im Config-Modus
+    if (millis() - lastBlink >= 500)
+    {
+      lastBlink = millis();
+      ledOn = !ledOn;
+      digitalWrite(LED_BUTTON_PIN, ledOn ? HIGH : LOW);
+    }
+
+    if (allowButton)
+    {
+      bool down = (digitalRead(BUTTON_PIN) == LOW);
+      if (!armed)
+      {
+        if (!down)
+          armed = true;
+      }
+      else if (down && !pressed)
+      {
+        pressed = true;
+        pressStart = millis();
+      }
+      else if (!down && pressed)
+      {
+        pressed = false;
+        if (millis() - pressStart > 50) // entprellen
+        {
+          Serial.println("/config-mode exit by button");
+          Serial.flush();
+          delay(300);
+          ESP.restart();
+        }
+      }
+    }
+
+    if (Serial.available() == 0)
+    {
+      delay(10);
+      continue;
+    }
+
+    String data = Serial.readStringUntil('\n');
+    data.trim();
+    if (data.length() == 0)
+      continue;
+
+    int spacePos = data.indexOf(' ');
+    String cmd = (spacePos >= 0) ? data.substring(0, spacePos) : data;
+    String arg = (spacePos >= 0) ? data.substring(spacePos + 1) : "";
+    int argSpace = arg.indexOf(' ');
+    String path = (argSpace >= 0) ? arg.substring(0, argSpace) : arg;
+    String payload = (argSpace >= 0) ? arg.substring(argSpace + 1) : "";
+
+    if (cmd != "/file-append") // lange Zeilen (Config-JSON) nicht komplett zurueckgeben
+      Serial.println("received: " + data);
+
+    if (cmd == "/ping")
+      Serial.println("/pong " FIRMWARE_VERSION);
+    else if (cmd == "/config")
+      Serial.println("/config-mode active");
+    else if (cmd == "/file-remove")
+    {
+      SPIFFS.remove("/" + path);
+      Serial.println("removeFile: " + path);
+    }
+    else if (cmd == "/file-append")
+      configAppendFile(path, payload);
+    else if (cmd == "/file-read")
+      configReadFile(path);
+    else if (cmd == "/config-done")
+    {
+      Serial.println("/config-done");
+      Serial.flush();
+      delay(300);
+      ESP.restart();
+    }
+    else
+      Serial.println("command unknown");
+  }
+}
+
+// Nach dem Booten kurz auf "/config" vom Web Installer warten.
+// So kann der Installer ("Restart device") den Config-Modus ohne Button starten.
+void waitForSerialConfig()
+{
+  unsigned long start = millis();
+  while (millis() - start < CONFIG_SERIAL_WINDOW_MS)
+  {
+    if (Serial.available() > 0)
+    {
+      String cmd = Serial.readStringUntil('\n');
+      cmd.trim();
+      if (cmd == "/config")
+      {
+        Serial.println("/config-mode serial");
+        executeConfig(deviceString.length() > 0);
+      }
+    }
+    delay(20);
+  }
+}
+
+// LED-Button beim Einschalten gedrueckt halten -> Config-Modus
+bool buttonHeldAtBoot()
+{
+  if (digitalRead(BUTTON_PIN) != LOW)
+    return false;
+  unsigned long start = millis();
+  while (millis() - start < CONFIG_BUTTON_HOLD_MS)
+  {
+    if (digitalRead(BUTTON_PIN) != LOW)
+      return false;
+    delay(10);
+  }
+  return true;
+}
 
 // Zustände der Pulserkennung Wahlscheibe
 enum PulseDetectionState
@@ -96,6 +384,25 @@ void Task1code(void *pvParameters)
 
   for (;;)
   {
+    // Tastendruck protokollieren (entprellt)
+    static unsigned long lastButtonLog = 0;
+    if (buttonLogPending)
+    {
+      buttonLogPending = false;
+      if (millis() - lastButtonLog > 300)
+      {
+        lastButtonLog = millis();
+        logEvent("Taste gedrueckt");
+      }
+    }
+
+    // Muenzsignale, die gerade niemand auswertet
+    if (coinEdgesUnused > 0)
+    {
+      unsigned int edges = coinEdgesUnused;
+      coinEdgesUnused = 0;
+      logEvent("Muenzsignal ausserhalb der Muenzerkennung, nicht gezaehlt: " + String(edges) + " Flanke(n)");
+    }
 
     // Flankenauswertung Telefonhöhrer (aufgelegt = 0 / abgehoben = 1)
     bool switch1_read_value = !digitalRead(SWITCH1_PIN);
@@ -203,9 +510,9 @@ void Task1code(void *pvParameters)
             myDFPlayer.play(21);
             Serial.println("Play 21");
             dial_final_pulse_count = 21;
-            Serial.println("ATM aktivieren");
-            delay(2700);
-            activeATM = true;
+            logEvent("Kurzwahl 21 erkannt");
+            activeATM = true; // sofort, die Ansage laeuft parallel weiter
+            logEvent("ATM AKTIVIERT");
           }
           if (d_tempDialPulses == 22)
           {
@@ -213,10 +520,18 @@ void Task1code(void *pvParameters)
             myDFPlayer.play(22);
             Serial.println("Play 22");
             dial_final_pulse_count = 22;
-            Serial.println("ATM deaktivieren");
-            delay(2000);
-            activeATM = false;
-            activeATMflanker = false;
+            logEvent("Kurzwahl 22 erkannt");
+            // Nur wenn der ATM auf Muenzen wartet und kein Guthaben offen ist
+            if (activeATM && coinListening && coinPulses == 0 && inserted_cents == 0)
+            {
+              activeATM = false; // das Startbild zeichnet loop()
+              setCoinBlock(true, "Kurzwahl 22");
+              logEvent("ATM DEAKTIVIERT (Kurzwahl 22)");
+            }
+            else
+            {
+              logEvent("Kurzwahl 22 ignoriert (ATM wartet nicht auf Muenzen oder Guthaben offen)");
+            }
           }
         }
         Serial.println("Start DFPlayer mit Nr. " + String(dial_final_pulse_count));
@@ -252,11 +567,88 @@ void updateArrow()
   // to activate: updateArrow();
 }
 
+// Gezaehlte Impulse gutschreiben. false, wenn es keine gueltige Muenze war.
+bool credit_coin(unsigned int pulses)
+{
+  if (pulses == 0)
+    return false;
+  if (pulses < 2 || pulses > 9)
+  {
+    logEvent("Unbekannte Impulszahl " + String(pulses) + ", keine Muenze gutgeschrieben");
+    return false;
+  }
+  inserted_cents += COINS[pulses];
+  logEvent("Muenze erkannt: " + String(pulses) + " Impulse = " + String(COINS[pulses]) + " Cent, Summe " + String(inserted_cents) + " Cent");
+  return true;
+}
+
+// Muenzer sperren und Zaehlen beenden. Eine Muenze, die gerade noch
+// durchlaeuft, wird vorher fertig gezaehlt und gutgeschrieben.
+void close_coin_acceptor(const char *reason)
+{
+  setCoinBlock(true, reason);
+  if (!coinListening)
+    return; // nichts mehr offen
+  unsigned long start = millis();
+  while (true)
+  {
+    unsigned int pulses = coinPulses;
+    unsigned long last_pulse = coinLastPulse;
+    if (millis() - start >= COIN_SETTLE_MS && (pulses == 0 || millis() - last_pulse > PULSE_TIMEOUT))
+      break;
+    delay(10);
+  }
+  coinListening = false;
+  credit_coin(coinPulses);
+}
+
+// Zurueck zum Startbild (60 s ohne Muenze oder Kurzwahl 22)
+void enter_standard_mode()
+{
+  activeATMflanker = false; // vor dem Zeichnen, damit eine neue 21 waehrenddessen zaehlt
+  close_coin_acceptor("ATM deaktiviert");
+  digitalWrite(LED_BUTTON_PIN, LOW);
+  digitalWrite(K1_ARROW_PIN, LOW);
+  logEvent("Standardmodus, zeichne Startbild");
+  muenzfw_screen();
+  logEvent("Startbild fertig");
+}
+
 void setup()
 {
-  initialize_display(); // connection to the e-ink display
-  Serial.begin(115200);
+  Serial.setRxBufferSize(1024); // Platz fuer das Config-JSON vom Web Installer
+  Serial.begin(115200);         // vor dem Display, display.init() startet Serial sonst selbst
+  initialize_display();         // connection to the e-ink display
   delay(500);
+  Serial.println();
+  Serial.println("[BOOT] Muenzer63 firmware " FIRMWARE_VERSION);
+
+  pinMode(K1_ARROW_PIN, OUTPUT);     // Initialize pin as an output
+  pinMode(COIN_PIN, INPUT_PULLUP);   // coin acceptor input
+  pinMode(LED_BUTTON_PIN, OUTPUT);   // LED of the LED Button
+  pinMode(BUTTON_PIN, INPUT_PULLUP); // Button
+  pinMode(MOSFET_PIN, OUTPUT);       // mosfet relay to block the coin acceptor
+  setCoinBlock(true, "Start");       // set it low to accept coins, high to block coins
+
+  // ── Device String aus SPIFFS laden (Web Installer) ──
+  if (!SPIFFS.begin(true))
+    Serial.println("[SETUP] SPIFFS mount failed");
+  deviceString = readDeviceStringFromFlash();
+  if (deviceString.length() > 0)
+    Serial.println("[SETUP] Device string loaded from flash (Web Installer)");
+
+  // ── Config-Modus (vor Task1, damit nur ein Kern auf Serial schreibt) ──
+  if (deviceString.length() == 0)
+  {
+    Serial.println("/config-mode no config found");
+    executeConfig(false); // bleibt bis /config-done, dann Neustart
+  }
+  if (buttonHeldAtBoot())
+  {
+    Serial.println("/config-mode button");
+    executeConfig(true);
+  }
+  waitForSerialConfig();
 
   // create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
   xTaskCreatePinnedToCore(
@@ -268,27 +660,29 @@ void setup()
       &Task1,    //* Task handle to keep track of created task
       0          //* pin task to core 0
   );
+  // Muenzzaehler: Core 1, hoehere Prioritaet als loop()
+  xTaskCreatePinnedToCore(coinTaskCode, "CoinTask", 4096, NULL, 2, NULL, 1);
   delay(500);
 
   if (DEBUG_MODE) // serial connection for debugging over USB
   {
-    sleep(3);
     Serial.println("Setup with debug mode..."); // for monitoring with serial monitor to debug
     Serial.println("Selected display type: " + display_type);
   }
-  pinMode(K1_ARROW_PIN, OUTPUT);                            // Initialize pin as an output
-  pinMode(COIN_PIN, INPUT_PULLUP);                          // coin acceptor input
-  pinMode(LED_BUTTON_PIN, OUTPUT);                          // LED of the LED Button
-  pinMode(BUTTON_PIN, INPUT_PULLUP);                        // Button
-  pinMode(MOSFET_PIN, OUTPUT);                              // mosfet relay to block the coin acceptor
-  digitalWrite(MOSFET_PIN, HIGH);                           // set it low to accept coins, high to block coins
   attachInterrupt(BUTTON_PIN, button_pressed_itr, FALLING); // interrupt, will set button_pressed to true when button is pressed
+  attachInterrupt(COIN_PIN, coin_signal_itr, FALLING);      // nur fuer das Logging
+  logEvent("Standardmodus, zeichne Startbild");
   muenzfw_screen();                                         // will show first screen
-  digitalWrite(LED_BUTTON_PIN, LOW);                        // light up the led
-  baseURLATM = getValue(lnurlDeviceString, ',', 0);         // setup wallet data from string
-  secretATM = getValue(lnurlDeviceString, ',', 1);
-  currencyATM = getValue(lnurlDeviceString, ',', 2);
-  fossaMode = (lnurlDeviceString.indexOf("/fossa/") >= 0);  // auto-detect backend from URL
+  logEvent("Startbild fertig, bereit fuer Kurzwahl 21");
+  digitalWrite(LED_BUTTON_PIN, LOW);                        // LED off while ATM is inactive
+  baseURLATM = getValue(deviceString, ',', 0);              // setup wallet data from string
+  secretATM = getValue(deviceString, ',', 1);
+  currencyATM = getValue(deviceString, ',', 2);
+  fossaMode = (deviceString.indexOf("/lnurldevice/") < 0); // FOSSA (AES) unless lnurldevice URL
+  Serial.println("[SETUP] baseURL : " + baseURLATM);
+  Serial.println("[SETUP] secret  : " + (secretATM.length() > 6 ? secretATM.substring(0, 4) + "..." + secretATM.substring(secretATM.length() - 2) : String("***")));
+  Serial.println("[SETUP] currency: " + currencyATM);
+  Serial.println(String("[SETUP] mode    : ") + (fossaMode ? "fossa (AES)" : "lnurldevice (XOR)"));
 }
 
 void loop()
@@ -305,72 +699,83 @@ void loop()
     // Serial.println("start_payout = false");
   }
 
-  if (activeATM == true)
+  if (!activeATM)
   {
-    Serial.println("activeATM == true");
+    if (activeATMflanker)
+      enter_standard_mode();
+    return;
+  }
 
-    // Initialisierung für den ersten Aufruf
-    if (!activeATMflanker)
-    {
-      home_screen();
-      digitalWrite(MOSFET_PIN, LOW);
-      digitalWrite(LED_BUTTON_PIN, HIGH);
-      activeATMflanker = true;
-    }
+  // Initialisierung für den ersten Aufruf
+  if (!activeATMflanker)
+  {
+    activeATMflanker = true;
+    openCoinAcceptor("ATM bereit");
+    digitalWrite(LED_BUTTON_PIN, HIGH);
+    logEvent("Zeichne ATM-Bild, Muenzen werden schon angenommen");
+    home_screen();
+    logEvent("ATM-Bild fertig");
+  }
+  if (!activeATM)
+    return; // 22 waehrend des Bildaufbaus
 
-    pulses = detect_coin(); // detect_coin() is a loop to detect the input of coins, will return the amount of pulses
-    if (pulses >= 2 && pulses <= 9)
+  pulses = detect_coin(); // detect_coin() is a loop to detect the input of coins, will return the amount of pulses
+  if (credit_coin(pulses))
+  {
+    setCoinBlock(true, "Betrag wird angezeigt");
+    if (activeATM)
     {
-      digitalWrite(MOSFET_PIN, HIGH);
-      inserted_cents += COINS[pulses];
       show_inserted_amount(inserted_cents);
+      logEvent("Betrag angezeigt");
     }
-    else if (button_pressed && inserted_cents > 0)
+  }
+  else if (activeATM && button_pressed && inserted_cents > 0)
+  {
+    close_coin_acceptor("Auszahlung");
+    logEvent("Auszahlung gestartet: " + String(inserted_cents) + " Cent");
+    button_pressed = false;
+    try
     {
-      digitalWrite(MOSFET_PIN, HIGH);
-      button_pressed = false;
-      try
-      {
-        // makeLNURL can raise
-        String lnurl = makeLNURL(inserted_cents);
-        qr_withdrawl_screen(lnurl.c_str());
-        wait_for_user_to_scan();
-      }
-      catch (const std::exception &e)
-      {
-        Serial.println(e.what());
-      }
-      home_screen();
-      digitalWrite(MOSFET_PIN, LOW);
-      inserted_cents = 0;
+      // makeLNURL can raise
+      String lnurl = makeLNURL(inserted_cents);
+      qr_withdrawl_screen(lnurl.c_str());
+      wait_for_user_to_scan();
     }
-    else if (button_pressed && !pulses && !inserted_cents) // to clean the screen (for storage), press the button several times
+    catch (const std::exception &e)
     {
-      int press_counter = 0;
+      Serial.println(e.what());
+    }
+    inserted_cents = 0;
+    openCoinAcceptor("bereit nach Auszahlung");
+    logEvent("Auszahlung beendet, zeichne ATM-Bild");
+    home_screen();
+    logEvent("ATM-Bild fertig");
+  }
+  else if (activeATM && button_pressed && !pulses && !inserted_cents) // to clean the screen (for storage), press the button several times
+  {
+    int press_counter = 0;
 
-      button_pressed = false;
-      time_last_press = millis();
-      while ((millis() - time_last_press) < 4000 && press_counter < 6)
+    button_pressed = false;
+    time_last_press = millis();
+    while ((millis() - time_last_press) < 4000 && press_counter < 6)
+    {
+      if (button_pressed)
       {
-        if (button_pressed)
-        {
-          if (DEBUG_MODE)
-            Serial.println("Button pressed");
-          time_last_press = millis();
-          button_pressed = false;
-          press_counter++;
-          delay(500);
-        }
+        time_last_press = millis();
+        button_pressed = false;
+        press_counter++;
+        logEvent("Display-Reinigung, Tastendruck " + String(press_counter) + " von 6");
+        delay(500);
       }
-      if (press_counter > 5)
-      {
-        if (DEBUG_MODE)
-          Serial.println("Button pressed over 5 times, will clean screen...");
-        clean_screen();
-        display_sleep();
-        delay(30000);
-        home_screen();
-      }
+    }
+    if (press_counter > 5)
+    {
+      if (DEBUG_MODE)
+        Serial.println("Button pressed over 5 times, will clean screen...");
+      clean_screen();
+      display_sleep();
+      delay(30000);
+      home_screen();
     }
   }
 }
@@ -379,6 +784,7 @@ void loop()
 void IRAM_ATTR button_pressed_itr()
 {
   button_pressed = true;
+  buttonLogPending = true;
 }
 
 // blocking loop which is called when the qr code is shown
@@ -414,60 +820,44 @@ void wait_for_user_to_scan()
 
 unsigned int detect_coin()
 {
-  unsigned long last_pulse;
-  unsigned int pulses;
-  bool prev_value;
-  bool read_value;
+  unsigned int pulses = 0;
   unsigned long entering_time;
   unsigned long current_time;
 
-  if (DEBUG_MODE)
-    Serial.println("Starting coin detection...");
-
-  pulses = 0;
-  read_value = 1;
-  prev_value = digitalRead(COIN_PIN);
+  // Nach dem Bildaufbau ist der Muenzer schon offen -> bereits gezaehlte Impulse behalten
+  if (!coinListening)
+    openCoinAcceptor("warte auf Muenzen");
+  else if (coinPulses == 0)
+    setCoinBlock(false, "warte auf Muenzen");
   digitalWrite(LED_BUTTON_PIN, HIGH);
-  digitalWrite(MOSFET_PIN, LOW);
   button_pressed = false;
   entering_time = millis();
-  while (true && !button_pressed)
+  logEvent("Muenzerkennung gestartet");
+  while (true)
   {
-    read_value = digitalRead(COIN_PIN);
-    if (read_value != prev_value && !read_value)
-    {
-      delay(35);
-      read_value = digitalRead(COIN_PIN);
-      if (!read_value)
-      {
-        pulses++;
-        last_pulse = millis();
-        digitalWrite(MOSFET_PIN, HIGH);
-      }
-    }
-    prev_value = read_value;
+    pulses = coinPulses; // zaehlt coinTaskCode()
+    unsigned long last_pulse = coinLastPulse;
     current_time = millis();
-    if (pulses > 0 && (current_time - last_pulse > PULSE_TIMEOUT))
+    if (pulses > 0)
     {
-      digitalWrite(K1_ARROW_PIN, LOW);
+      // Eine angenommene Muenze wird immer fertig gezaehlt, auch bei Tastendruck
+      if (millis() - last_pulse > PULSE_TIMEOUT)
+        break;
+    }
+    else if (button_pressed || !activeATM)
+    {
       break;
     }
-    else if ((pulses == 0 && ((current_time - entering_time) > 60000) // deaktivere ATM Funktion nach 1 Minuten
-              && inserted_cents == 0) ||
-             activeATM == false)
+    else if ((current_time - entering_time) > 60000 && inserted_cents == 0) // deaktivere ATM Funktion nach 1 Minuten
     {
-      digitalWrite(MOSFET_PIN, HIGH);
-      digitalWrite(LED_BUTTON_PIN, LOW);
-      muenzfw_screen();
+      logEvent("ATM DEAKTIVIERT (60 s ohne Muenze)");
       activeATM = false;
-      activeATMflanker = false;  
-      Serial.println("ATM deaktivieren");
       break;
     }
     else if (inserted_cents > 0 && (current_time - entering_time) > 360000) // 360000 break the loop if no new coin is inserted for some time
     {
       button_pressed = true;
-      Serial.println("Auto payout after 6 minutes (3600 seconds)");
+      logEvent("Automatische Auszahlung nach 6 Minuten");
     }
     // blink arrow blink after 15 seconds
     else if (inserted_cents > 0 && (current_time - entering_time) > 10000)
@@ -476,15 +866,10 @@ unsigned int detect_coin()
     }
   }
   digitalWrite(K1_ARROW_PIN, LOW);
+  if (pulses > 0)
+    coinListening = false; // Muenze ist fertig gezaehlt
 
-  if (DEBUG_MODE)
-    Serial.println("Pulses: " + String(pulses));
-  if (button_pressed || activeATM == false)
-  {
-    if (DEBUG_MODE)
-      Serial.println("Button pressed OR activeATM = false => stopping coin detection");
-    return (0);
-  }
+  logEvent("Muenzerkennung beendet, Impulse: " + String(pulses));
   return (pulses);
 }
 
@@ -559,6 +944,35 @@ void muenzfw_screen()
     Serial.println("No suitable display class defined.");
   if (DEBUG_MODE)
     Serial.println("Home screen printed.");
+}
+
+// Anzeige im Config-Modus (Web Installer). Ein Layout fuer alle Displays,
+// skaliert nach Displaybreite.
+void config_screen(bool canExitByButton)
+{
+  bool large = display.width() >= 250 || display.height() >= 250;
+  display.setRotation(1);
+  display.setFullWindow();
+  display.firstPage();
+  display.setTextColor(GxEPD_BLACK, GxEPD_WHITE);
+
+  display.setTextSize(large ? 2 : 1);
+  display.setCursor(3, 10);
+  display.println("USB CONFIG MODE");
+
+  display.setTextSize(1);
+  display.setCursor(3, large ? 40 : 30);
+  display.println(" Connect USB and open the");
+  display.println(" Muenzer63 Web Installer.");
+  display.println();
+  display.println(" Firmware: " FIRMWARE_VERSION);
+  if (canExitByButton)
+  {
+    display.println();
+    display.println(" Short press LED button: exit");
+  }
+  display.nextPage();
+  display.hibernate();
 }
 
 void show_inserted_amount(int amount_in_cents)

@@ -11,14 +11,15 @@
 #include <ctype.h>
 
 // ########################################
-// ###########    USER ACTION   ###########
+// ###########  DEVICE STRING   ###########
 // ########################################
-// Setup the the wallet in "private_data.h"
-#include "private_data.h"
-// See "private_data_example.h" how it works
+// Enter the device string with the Web Installer (installer/index.html).
+// It is stored on the ESP32 in SPIFFS (/config.json) and survives firmware updates.
 // ########################################
-// ########################################
-// ########################################
+
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
 
 // select the display class and display driver class in the following file (new style):
 // 1.54 inch Waveshare e-paper display is "GxEPD2_DRIVER_CLASS GxEPD2_150_BN"
@@ -36,6 +37,7 @@
 
 #define COIN_PIN 4 
 #define PULSE_TIMEOUT 200
+#define COIN_SETTLE_MS 500 // nach dem Sperren noch so lange auf Muenzimpulse warten
 #define LED_BUTTON_PIN 32
 #define K1_ARROW_PIN 19
 #define K2_BACKLIGHT_PIN 21
@@ -159,6 +161,7 @@ void IRAM_ATTR button_pressed_itr();
 void wait_for_user_to_scan();
 String getValue(String data, char separator, int index);
 void display_sleep();
+void config_screen(bool canExitByButton);
 void test_macro();
 
 // Waveshare 1.54 inch e-ink display functions

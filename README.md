@@ -73,7 +73,30 @@ And the connector front to middle [here.](./assets/Muenzer63_connector-front_to_
 
 As the ESP32 has two core processors, the code here has been optimized so that part of the program runs via the second processor. It is mainly the pulse query of the dial that is queried cyclically. The part of the ATM with the pulses from the coin selector runs on the second processor and is processed in a similar way to a step chain. 
 
-To protect the private wallet data, the LNbits wallet string is stored in the file "private_data.h". It is entered in .gitignore and is ignored when uploading to Github. This prevents you from accidentally uploading the wallet data. There is a file "private_data_example.h" in the "include" directory. It is an example file that must be copied in the same directory and renamed to "private_data.h". Only in this file the string of the LNbits wallet must be adapted. As the file is entered in .gitignore, the content is ignored by Git. Changes do not appear in Git and therefore cannot be accidentally uploaded to GitHub. 
+## Web Installer
+
+The easiest way to set up the Muenzer63 is the Web Installer:
+
+**👉 [https://ereignishorizont.xyz/installer/muenzer63/](https://ereignishorizont.xyz/installer/muenzer63/)**
+
+The source of the page is in the [installer](installer/) folder. It runs in Google Chrome or Microsoft Edge and needs no build tools:
+
+1. **Flash** the latest firmware via USB (choose *Erase device* for a fresh install).
+2. **Connect** – a new device is already in config mode. For a configured device press *Restart device*.
+3. **Configure** – paste the device string from the LNbits Fossa (or LNURLDevice) extension (`URL,secret,currency`), press *Write config* and *Finish & restart*.
+
+The device string is stored on the ESP32 (SPIFFS, `/config.json`) and is kept when the firmware is updated without *Erase device*.
+
+**Config mode** starts:
+- automatically when no device string is stored (e.g. after the first flash),
+- when the **LED button is held while switching the Muenzer63 on** (a short press then leaves config mode again),
+- when the Web Installer sends `/config` within 3 seconds after boot (button *Restart device*).
+
+In config mode the coin acceptor is blocked, the LED button blinks and the display shows *USB CONFIG MODE*.
+
+If you host the page yourself, it must be served via HTTPS or from `localhost`, because Web Serial is not available on plain HTTP. For local testing: `cd installer` and `python -m http.server 8000`, then open http://localhost:8000.
+
+How a new firmware release for the installer is built is described in [FIRMWARE.md](FIRMWARE.md).
 
 Text to speech converter: [ttsmp3.com](https://ttsmp3.com/) <br>
 UART Com: [microcontrollerslab.com](https://microcontrollerslab.com/esp32-uart-communication-pins-example/) <br>
