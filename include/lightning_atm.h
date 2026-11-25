@@ -13,19 +13,8 @@
 // ########################################
 // ###########  DEVICE STRING   ###########
 // ########################################
-// Normal way: enter the device string with the Web Installer (installer/index.html).
+// Enter the device string with the Web Installer (installer/index.html).
 // It is stored on the ESP32 in SPIFFS (/config.json) and survives firmware updates.
-//
-// Fallback: hard-code the device string in "private_data.h"
-// (see "private_data_example.h"). It is only used when no device string was
-// stored via the Web Installer. The installer build (-DINSTALLER_BUILD=1)
-// always ignores "private_data.h", so a personal string never ends up in a
-// published firmware.
-#if !defined(INSTALLER_BUILD) && __has_include("private_data.h")
-#include "private_data.h"
-#else
-const String lnurlDeviceString = "";
-#endif
 // ########################################
 
 #ifndef FIRMWARE_VERSION
@@ -48,6 +37,7 @@ const String lnurlDeviceString = "";
 
 #define COIN_PIN 4 
 #define PULSE_TIMEOUT 200
+#define COIN_SETTLE_MS 500 // nach dem Sperren noch so lange auf Muenzimpulse warten
 #define LED_BUTTON_PIN 32
 #define K1_ARROW_PIN 19
 #define K2_BACKLIGHT_PIN 21

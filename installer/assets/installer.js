@@ -1,6 +1,7 @@
 // Muenzer63 web installer – serial configuration logic (based on the FOSSA web installer).
 // Protocol (firmware: src/main.cpp, executeConfig), 115200 baud, newline terminated:
-//   /config                       enter config mode (only accepted shortly after boot)
+//   /config                       enter config mode (only accepted shortly after boot,
+//                                 only sent by the "Restart device" button)
 //   /ping                         -> "/pong <firmware version>" (config mode only)
 //   /file-remove <file>           delete file
 //   /file-append <file> <data>    append <data> + newline -> "appendToFile: <file>"
@@ -112,16 +113,26 @@ serial.on(SerialEvents.DATA_RECEIVED, (_s, line) => {
 
 // ───────────────────────── config mode ─────────────────────────
 
-// Repeatedly asks the device to enter config mode until it answers /ping.
-async function enterConfigMode(timeoutMs) {
+// Waits until the device answers /ping, i.e. is in config mode.
+// requestConfig = true also asks the device to enter config mode.
+// Returns "config", "running" (device started normal operation) or "timeout".
+async function waitForConfigMode(timeoutMs, requestConfig) {
   configMode = false;
   updateUi();
+  let running = false;
+  // Printed by the firmware only when it starts normal operation.
+  const watcher = { predicate: (l) => { if (l.startsWith("Task1 running")) running = true; return false; }, resolve: () => {} };
+  lineListeners.push(watcher);
   const start = Date.now();
-  while (Date.now() - start < timeoutMs && serial.isOpen()) {
-    const pong = waitForLine((l) => l.startsWith("/pong"), 450);
+  while (!running && Date.now() - start < timeoutMs && serial.isOpen()) {
+    // Slow interval: the device does not read serial while the e-paper refreshes,
+    // and everything sent meanwhile has to fit into its receive buffer.
+    const pong = waitForLine((l) => l.startsWith("/pong"), 1000);
     try {
-      await serial.write("/config\n");
-      await sleep(80);
+      if (requestConfig) {
+        await serial.write("/config\n");
+        await sleep(80);
+      }
       await serial.write("/ping\n");
     } catch (e) {
       break;
@@ -131,25 +142,36 @@ async function enterConfigMode(timeoutMs) {
       configMode = true;
       const version = line.split(" ")[1];
       $("firmware-info").textContent = version ? "Firmware: " + version : "";
+      lineListeners = lineListeners.filter((l) => l !== watcher);
       updateUi();
-      return true;
+      return "config";
     }
   }
+  lineListeners = lineListeners.filter((l) => l !== watcher);
   updateUi();
-  return false;
+  return running ? "running" : "timeout";
 }
 
-async function connectAndEnterConfig(afterReset) {
+// restart = false (Connect): only look whether the device is in config mode.
+// restart = true ("Restart device"): reset the device and start config mode.
+async function connectDevice(restart) {
   busy = true;
   updateUi();
   showMessage("", "");
   try {
-    if (afterReset) await serial.hardwareReset();
-    showMessage("", "Waiting for the device… (starting config mode)");
-    const ok = await enterConfigMode(11000);
-    if (ok) {
+    if (restart) await serial.hardwareReset();
+    showMessage("", restart ? "Waiting for the device… (starting config mode)" : "Waiting for the device…");
+    // Drawing the config screen can take more than 12 s before the device answers.
+    const state = await waitForConfigMode(restart ? 30000 : 20000, restart);
+    if (state === "config") {
       showMessage("ok", "Device is in config mode.");
       await readConfig(true);
+    } else if (!restart) {
+      showMessage(
+        "",
+        "The device is not in config mode, it keeps running normally. " +
+          "To change the configuration press “Restart device”."
+      );
     } else {
       showMessage(
         "err",
@@ -311,11 +333,11 @@ $("connect-button").addEventListener("click", async () => {
   await serial.connectAndOpen(null, { baudRate: BAUD_RATE });
   if (serial.serialPort) {
     await sleep(300);
-    if (serial.isOpen()) await connectAndEnterConfig(false);
+    if (serial.isOpen()) await connectDevice(false);
   }
 });
 
-$("restart-button").addEventListener("click", () => connectAndEnterConfig(true));
+$("restart-button").addEventListener("click", () => connectDevice(true));
 
 $("disconnect-button").addEventListener("click", async () => {
   try {

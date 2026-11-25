@@ -82,7 +82,7 @@ The easiest way to set up the Muenzer63 is the Web Installer:
 The source of the page is in the [installer](installer/) folder. It runs in Google Chrome or Microsoft Edge and needs no build tools:
 
 1. **Flash** the latest firmware via USB (choose *Erase device* for a fresh install).
-2. **Connect** – the page puts the ESP32 into config mode automatically.
+2. **Connect** – a new device is already in config mode. For a configured device press *Restart device*.
 3. **Configure** – paste the device string from the LNbits Fossa (or LNURLDevice) extension (`URL,secret,currency`), press *Write config* and *Finish & restart*.
 
 The device string is stored on the ESP32 (SPIFFS, `/config.json`) and is kept when the firmware is updated without *Erase device*.
@@ -97,10 +97,6 @@ In config mode the coin acceptor is blocked, the LED button blinks and the displ
 If you host the page yourself, it must be served via HTTPS or from `localhost`, because Web Serial is not available on plain HTTP. For local testing: `cd installer` and `python -m http.server 8000`, then open http://localhost:8000.
 
 How a new firmware release for the installer is built is described in [FIRMWARE.md](FIRMWARE.md).
-
-### Fallback: hard-coded device string
-
-Alternatively, the LNbits device string can still be hard-coded in the file "private_data.h". It is only used when no device string was stored via the Web Installer. The file is entered in .gitignore and is ignored when uploading to GitHub, so you cannot accidentally upload the wallet data. Copy "private_data_example.h" in the "include" directory, rename it to "private_data.h" and paste your string there. Then build and upload with the PlatformIO environment `esp32dev`. The environment `installer` ignores "private_data.h" on purpose, so a personal string never ends up in a published firmware.
 
 Text to speech converter: [ttsmp3.com](https://ttsmp3.com/) <br>
 UART Com: [microcontrollerslab.com](https://microcontrollerslab.com/esp32-uart-communication-pins-example/) <br>

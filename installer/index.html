@@ -28,9 +28,9 @@
     </ul>
     <div class="row">
       <select id="firmware-version">
-        <option value="./firmware/v977405/manifest.json">v977405 (Latest)</option>
+        <option value="./firmware/v977544/manifest.json">v977544 (Latest)</option>
       </select>
-      <esp-web-install-button id="flash-button" manifest="./firmware/v977405/manifest.json?_t=0">
+      <esp-web-install-button id="flash-button" manifest="./firmware/v977544/manifest.json?_t=0">
         <button slot="activate" class="primary">🔥 Flash</button>
         <span slot="unsupported">Your browser does not support installing on ESP devices. Use Google Chrome or Microsoft Edge.</span>
         <span slot="not-allowed">Not allowed on HTTP – open this page via HTTPS.</span>
@@ -45,10 +45,10 @@
     <ul>
       <li>Close other programs that use the USB port (serial monitor, flash dialog).</li>
       <li>Press <b>Connect</b> and select the serial port of the ESP32.</li>
-      <li>The page puts the device into <b>config mode</b> automatically. A device without a stored
-        device string (fresh install) starts in config mode by itself and shows <i>USB CONFIG MODE</i>.</li>
-      <li>If config mode does not start, press <b>Restart device</b>. As a fallback, hold the
-        <b>LED button</b> while switching the Muenzer63 on. The LED blinks in config mode.</li>
+      <li>A device without a stored device string (fresh install) starts in <b>config mode</b> by itself
+        and shows <i>USB CONFIG MODE</i>. The LED blinks in config mode.</li>
+      <li>A configured device keeps running when you connect. To change its configuration press
+        <b>Restart device</b>, or hold the <b>LED button</b> while switching the Muenzer63 on.</li>
     </ul>
     <div class="row">
       <button id="connect-button">🔌 Connect</button>

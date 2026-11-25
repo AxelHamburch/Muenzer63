@@ -6,41 +6,37 @@ updated `installer/` folder there as well.
 
 There is only one hardware variant (ESP32 dev board, Waveshare 2.13" e-paper V3, `GxEPD2_213_B74`).
 
-> **⚠️ Always build releases with the `installer` environment.**
-> It sets `-DINSTALLER_BUILD=1` and ignores `include/private_data.h`.
-> A build from `esp32dev` may contain your personal device string – never publish it!
-
 ## 1. Get the current Bitcoin block height
 
 ```powershell
 (Invoke-WebRequest -Uri "https://mempool.space/api/blocks/tip/height" -UseBasicParsing).Content
 ```
 
-The version is `v<BLOCKHEIGHT>`, e.g. `v977405`.
+The version is `v<BLOCKHEIGHT>`, e.g. `v977544`.
 
 ## 2. Update platformio.ini
 
-In `[env:installer]` set the version, and update the `Current version` comment:
+In `[env:esp32dev]` set the version, and update the `Current version` comment:
 
 ```ini
--DFIRMWARE_VERSION=\"v977405\"
+-DFIRMWARE_VERSION=\"v977544\"
 ```
 
 ## 3. Build
 
 ```powershell
-C:\Users\Datenrettung\.platformio\penv\Scripts\platformio.exe run -e installer
+C:\Users\Datenrettung\.platformio\penv\Scripts\platformio.exe run
 ```
 
 ## 4. Copy the binaries
 
 ```powershell
-$v = "v977405"
+$v = "v977544"
 $dir = "installer\firmware\$v"
 New-Item -ItemType Directory -Path $dir -Force
-Copy-Item ".pio\build\installer\bootloader.bin" $dir
-Copy-Item ".pio\build\installer\partitions.bin" $dir
-Copy-Item ".pio\build\installer\firmware.bin"   $dir
+Copy-Item ".pio\build\esp32dev\bootloader.bin" $dir
+Copy-Item ".pio\build\esp32dev\partitions.bin" $dir
+Copy-Item ".pio\build\esp32dev\firmware.bin"   $dir
 Copy-Item "$env:USERPROFILE\.platformio\packages\framework-arduinoespressif32\tools\partitions\boot_app0.bin" $dir
 ```
 
@@ -57,7 +53,7 @@ Check that no device string is contained (must print `0`):
 ```json
 {
   "name": "Muenzer63",
-  "version": "v977405",
+  "version": "v977544",
   "new_install_prompt_erase": true,
   "builds": [
     {
@@ -82,4 +78,4 @@ and set the `manifest` attribute of `<esp-web-install-button>` to the new versio
 
 | Version | Notes                                   |
 |---------|-----------------------------------------|
-| v977405 | First Web Installer release             |
+| v977544 | Replaces v977405: coins accepted right after dialling 21, dial 22 deactivates the ATM while it waits for coins with no open balance, serial event log, hard-coded device string removed |
