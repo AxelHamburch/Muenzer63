@@ -710,6 +710,7 @@ void loop()
   if (!activeATMflanker)
   {
     activeATMflanker = true;
+    button_pressed = false;
     openCoinAcceptor("ATM bereit");
     digitalWrite(LED_BUTTON_PIN, HIGH);
     logEvent("Zeichne ATM-Bild, Muenzen werden schon angenommen");
@@ -746,6 +747,7 @@ void loop()
       Serial.println(e.what());
     }
     inserted_cents = 0;
+    button_pressed = false; // der Druck zum Beenden des QR-Codes ist erledigt
     openCoinAcceptor("bereit nach Auszahlung");
     logEvent("Auszahlung beendet, zeichne ATM-Bild");
     home_screen();
@@ -775,6 +777,7 @@ void loop()
       clean_screen();
       display_sleep();
       delay(30000);
+      button_pressed = false;
       home_screen();
     }
   }
@@ -824,13 +827,21 @@ unsigned int detect_coin()
   unsigned long entering_time;
   unsigned long current_time;
 
+  // Taste waehrend der Betragsanzeige gedrueckt -> sofort auszahlen
+  if (button_pressed && inserted_cents > 0 && !coinListening)
+  {
+    logEvent("Tastendruck waehrend der Anzeige gemerkt");
+    return 0;
+  }
+
   // Nach dem Bildaufbau ist der Muenzer schon offen -> bereits gezaehlte Impulse behalten
   if (!coinListening)
     openCoinAcceptor("warte auf Muenzen");
   else if (coinPulses == 0)
     setCoinBlock(false, "warte auf Muenzen");
   digitalWrite(LED_BUTTON_PIN, HIGH);
-  button_pressed = false;
+  if (inserted_cents == 0 && coinPulses == 0)
+    button_pressed = false; // ohne Guthaben gibt es nichts auszuzahlen
   entering_time = millis();
   logEvent("Muenzerkennung gestartet");
   while (true)
